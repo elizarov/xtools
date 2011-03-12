@@ -221,28 +221,11 @@ public class XBeeConnection {
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
         SerialConnection tunnel = openTunnel(destination);
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            resetHost(destination);
-            try {
-                Thread.sleep(250);
-            } catch (InterruptedException e) {
-                throw ((InterruptedIOException) new InterruptedIOException().initCause(e));
-            }
-            AvrProgrammer pgm;
-            try {
-                pgm = AvrProgrammer.open(tunnel);
-            } catch (AvrSyncException e) {
-                System.err.println(e.getMessage());
-                continue; // retry
-            } catch (Exception e) {
-                e.printStackTrace();
-                break; // failed
-            }
-            // success
-            System.err.println("Found AVR device " + pgm.getDevice());
-            return pgm;
+        try {
+            return AvrProgrammer.open(tunnel);
+        } catch (IOException e) {
+            tunnel.close();
+            throw e;
         }
-        tunnel.close();
-        throw new IOException("Cannot open AVR device");
     }
 }

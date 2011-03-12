@@ -5,6 +5,7 @@ import org.avrbuddy.util.HexUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 
 /**
@@ -23,6 +24,31 @@ public class AvrProgrammer {
     private static final byte STK_READ_SIGN     = 0x75; // 'u'
 
     public static AvrProgrammer open(SerialConnection serial) throws IOException {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            AvrProgrammer pgm;
+            try {
+                pgm = openAttempt(serial);
+            } catch (AvrSyncException e) {
+                System.err.println(e.getMessage());
+                continue; // retry
+            } catch (IOException e) {
+                e.printStackTrace();
+                break; // failed
+            }
+            // success
+            System.err.println("Found AVR device " + pgm.getDevice());
+            return pgm;
+        }
+        throw new IOException("Cannot open AVR device");
+    }
+
+    private static AvrProgrammer openAttempt(SerialConnection serial) throws IOException {
+        serial.resetHost();
+        try {
+            Thread.sleep(250);
+        } catch (InterruptedException e) {
+            throw ((InterruptedIOException) new InterruptedIOException().initCause(e));
+        }
         serial.drainInput();
         sync(serial);
         byte[] signature = signature(serial);

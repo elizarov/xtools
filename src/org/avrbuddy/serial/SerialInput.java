@@ -47,4 +47,9 @@ class SerialInput extends InputStream implements SerialPortEventListener {
                 notifyAll();
             }
     }
+
+    public synchronized void drain() throws IOException {
+        while (in.available() > 0)
+            in.read();
+    }
 }

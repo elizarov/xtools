@@ -12,10 +12,10 @@ public abstract class SerialConnection implements Closeable {
     public abstract InputStream getInput();
     public abstract OutputStream getOutput();
     public abstract void close();
-    public void drainInput() {}
+    public abstract void resetHost() throws IOException;
+    public abstract void drainInput() throws IOException;
 
     public static SerialConnection open(String port, int baud) throws IOException {
         return new SerialConnectionImpl(port, baud);
     }
-
 }

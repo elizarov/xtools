@@ -12,7 +12,7 @@ import java.io.OutputStream;
 class SerialConnectionImpl extends SerialConnection {
     private final String port;
     private final SerialPort serialPort;
-    private final InputStream in;
+    private final SerialInput in;
     private final OutputStream out;
 
     SerialConnectionImpl(String port, int baud) throws IOException {
@@ -52,6 +52,17 @@ class SerialConnectionImpl extends SerialConnection {
     @Override
     public void close() {
         serialPort.close();
+    }
+
+    @Override
+    public void resetHost() throws IOException {
+        serialPort.setDTR(false);
+        serialPort.setDTR(true);
+    }
+
+    @Override
+    public void drainInput() throws IOException {
+        in.drain();
     }
 
     @Override

@@ -46,6 +46,11 @@ class XBeeTunnel extends SerialConnection {
     }
 
     @Override
+    public void resetHost() throws IOException {
+        conn.resetHost(destination);
+    }
+
+    @Override
     public void drainInput() {
         in.drain();
     }
