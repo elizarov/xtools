@@ -66,6 +66,11 @@ class SerialConnectionImpl extends SerialConnection {
     }
 
     @Override
+    public void setReadTimeout(long timeout) throws IOException {
+        in.setTimeout(timeout);
+    }
+
+    @Override
     public String toString() {
         return port;
     }

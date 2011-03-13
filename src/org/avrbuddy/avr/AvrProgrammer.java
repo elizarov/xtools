@@ -13,7 +13,9 @@ import java.io.OutputStream;
  */
 public class AvrProgrammer {
     private final SerialConnection serial;
-    private final AvrDevice device;
+    private final AvrPart part;
+
+    private static final long READ_TIMEOUT = 500;
 
     private static final byte STK_OK            = 0x10;
     private static final byte STK_INSYNC        = 0x14; // ' '
@@ -23,7 +25,8 @@ public class AvrProgrammer {
     private static final byte STK_READ_PAGE     = 0x74; // 't'
     private static final byte STK_READ_SIGN     = 0x75; // 'u'
 
-    public static AvrProgrammer open(SerialConnection serial) throws IOException {
+    public static AvrProgrammer connect(SerialConnection serial) throws IOException {
+        serial.setReadTimeout(READ_TIMEOUT);
         for (int attempt = 1; attempt <= 3; attempt++) {
             AvrProgrammer pgm;
             try {
@@ -36,10 +39,10 @@ public class AvrProgrammer {
                 break; // failed
             }
             // success
-            System.err.println("Found AVR device " + pgm.getDevice());
+            System.err.println("Connected to AVR bootloader for " + pgm.getPart());
             return pgm;
         }
-        throw new IOException("Cannot open AVR device");
+        throw new IOException("Cannot connect to AVR bootloader");
     }
 
     private static AvrProgrammer openAttempt(SerialConnection serial) throws IOException {
@@ -52,11 +55,11 @@ public class AvrProgrammer {
         serial.drainInput();
         sync(serial);
         byte[] signature = signature(serial);
-        for (AvrDevice device : AvrDevice.values()) {
-            if (device.hasSignature(signature))
-                return new AvrProgrammer(serial, device);
+        for (AvrPart part : AvrPart.values()) {
+            if (part.hasSignature(signature))
+                return new AvrProgrammer(serial, part);
         }
-        throw new IOException("Unknown device signature " + HexUtil.formatBytes(signature, 0, 3));
+        throw new IOException("Unknown AVR signature " + HexUtil.formatBytes(signature, 0, 3));
     }
 
     private static void sync(SerialConnection serial) throws IOException {
@@ -66,7 +69,7 @@ public class AvrProgrammer {
         out.write(CRC_EOP);
         out.flush();
         if (in.read() != STK_INSYNC || in.read() != STK_OK)
-            throw new AvrSyncException("Cannot get sync with AVR device");
+            throw new AvrSyncException("Cannot get sync with AVR bootloader");
     }
 
     private static byte[] signature(SerialConnection serial) throws IOException {
@@ -76,20 +79,20 @@ public class AvrProgrammer {
         out.write(CRC_EOP);
         out.flush();
         if (in.read() != STK_INSYNC)
-            throw new AvrSyncException("Cannot get sync with AVR device");
+            throw new AvrSyncException("Cannot get sync with AVR bootloader");
         byte[] signature = new byte[3];
         if (in.read(signature) != 3 || in.read() != STK_OK)
-            throw new IOException("Cannot read AVR device signature");
+            throw new IOException("Cannot read AVR signature");
         return signature;
     }
 
-    public AvrProgrammer(SerialConnection serial, AvrDevice device) {
+    public AvrProgrammer(SerialConnection serial, AvrPart part) {
         this.serial = serial;
-        this.device = device;
+        this.part = part;
     }
 
-    public AvrDevice getDevice() {
-        return device;
+    public AvrPart getPart() {
+        return part;
     }
 
     public void close() {

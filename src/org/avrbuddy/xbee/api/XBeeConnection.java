@@ -1,7 +1,6 @@
 package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.avr.AvrProgrammer;
-import org.avrbuddy.avr.AvrSyncException;
 import org.avrbuddy.serial.SerialConnection;
 
 import java.io.DataInputStream;
@@ -83,11 +82,11 @@ public class XBeeConnection {
         serial.close();
     }
 
-    public <F extends XBeeFrame> void addListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
+    public <F> void addListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
         listenerList.addListener(frameClass, listener);
     }
 
-    public <F extends XBeeFrame> void removeListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
+    public <F> void removeListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
         listenerList.removeListener(frameClass, listener);
     }
 
@@ -222,7 +221,7 @@ public class XBeeConnection {
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
         SerialConnection tunnel = openTunnel(destination);
         try {
-            return AvrProgrammer.open(tunnel);
+            return AvrProgrammer.connect(tunnel);
         } catch (IOException e) {
             tunnel.close();
             throw e;

@@ -24,7 +24,7 @@ public class XBeeTxStatusFrame extends XBeeFrameWithId {
     }
 
     public short getDestinationNetworkAddress() {
-        return getShort(5);
+        return HexUtil.getBigEndianShort(frame, 5);
     }
 
     public byte getTransmitRetryCount() {
@@ -43,7 +43,7 @@ public class XBeeTxStatusFrame extends XBeeFrameWithId {
     public String toString() {
         return getFrameType() + " " +
                 HexUtil.formatByte(getFrameId()) + " " +
-                HexUtil.formatShort(getDestinationNetworkAddress()) + " " +
+                HexUtil.formatNibbles(getDestinationNetworkAddress(), 4) + " " +
                 HexUtil.formatByte(getTransmitRetryCount()) + " " +
                 HexUtil.formatByte(getDeliveryStatus()) + " " +
                 HexUtil.formatByte(getDiscoveryStatus());

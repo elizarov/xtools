@@ -55,20 +55,34 @@ class XBeeTunnel extends SerialConnection {
         in.drain();
     }
 
+    @Override
+    public void setReadTimeout(long timeout) throws IOException {
+        in.setTimeout(timeout);
+    }
+
     private class Input extends InputStream implements XBeeFrameListener<XBeeRxFrame> {
         private final byte[] buffer = new byte[IN_BUFFER_SIZE];
         private int readIndex = 0;
         private int writeIndex = 0;
         private int skipped = 0;
+        private long timeout;
+        private boolean closed;
 
         @Override
         public synchronized int read() throws IOException {
-            while (readIndex == writeIndex)
+            while (!closed && readIndex == writeIndex)
                 try {
-                    wait();
+                    if (timeout == 0)
+                        wait();
+                    else {
+                        wait(timeout);
+                        break;
+                    }
                 } catch (InterruptedException e) {
                     throw ((IOException) new InterruptedIOException().initCause(e));
                 }
+            if (readIndex == writeIndex)
+                return -1;
             byte b = buffer[readIndex];
             readIndex = (readIndex + 1) % IN_BUFFER_SIZE;
             return b;
@@ -107,12 +121,20 @@ class XBeeTunnel extends SerialConnection {
 
         @Override
         public void close() throws IOException {
+            synchronized (this) {
+                closed = true;
+                notifyAll();
+            }
             closeImpl();
         }
 
         public synchronized void drain() {
             readIndex = 0;
             writeIndex = 0;
+        }
+
+        public synchronized void setTimeout(long timeout) {
+            this.timeout = timeout;
         }
     }
 

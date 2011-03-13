@@ -39,6 +39,8 @@ public class XBeeFrame {
             return new XBeeTxStatusFrame(frame);
         case RX:
             return new XBeeRxFrame(frame);
+        case NODE_ID:
+            return new XBeeNodeIdFrame(frame);
         default:
             return new XBeeFrame(frame);
         }
@@ -84,10 +86,6 @@ public class XBeeFrame {
 
     static Builder newBuilder(XBeeFrameType type) {
         return new Builder(type);
-    }
-
-    short getShort(int i) {
-        return (short)(((frame[i] & 0xff) << 8) | (frame[i + 1] & 0xff));
     }
 
     static class Builder {

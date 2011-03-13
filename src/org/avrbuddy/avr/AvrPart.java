@@ -3,7 +3,7 @@ package org.avrbuddy.avr;
 /**
  * @author Roman Elizarov
  */
-public enum AvrDevice {
+public enum AvrPart {
     ATMEGA168A (0x1e9406, 64, 4),
     ATMEGA168PA(0x1e940b, 64, 4),
     ATMEGA328  (0x1e9514, 64, 4),
@@ -13,7 +13,7 @@ public enum AvrDevice {
     public final int flashPageSize;
     public final int eepromPageSize;
 
-    AvrDevice(int signature, int flashPageSize, int eepromPageSize) {
+    AvrPart(int signature, int flashPageSize, int eepromPageSize) {
         this.signature = signature;
         this.flashPageSize = flashPageSize;
         this.eepromPageSize = eepromPageSize;

@@ -18,7 +18,8 @@ public class XBeeNodeDiscovery {
     public static final int MAX_DISCOVERY_TIMEOUT = 0xff;
 
     private final XBeeConnection conn;
-    private final XBeeFrameListener<XBeeAtResponseFrame> listener = new FrameListener();
+    private final AtResponseListener atResponseListener = new AtResponseListener();
+    private final NodeDescriptionListener nodeDescriptionListener = new NodeDescriptionListener();
 
     private int discoveryTimeout = MIN_DISCOVERY_TIMEOUT;
 
@@ -29,15 +30,16 @@ public class XBeeNodeDiscovery {
     private XBeeNode localNode;
     private final Map<String, XBeeNode> nodeById = new HashMap<String, XBeeNode>();
     private final Map<XBeeAddress, XBeeNode> nodeByAddress = new HashMap<XBeeAddress, XBeeNode>();
-    private XBeeAddress orDiscoverLocalNode;
 
     public XBeeNodeDiscovery(XBeeConnection conn) {
         this.conn = conn;
-        conn.addListener(XBeeAtResponseFrame.class, listener);
+        conn.addListener(XBeeAtResponseFrame.class, atResponseListener);
+        conn.addListener(XBeeNodeDescriptionContainer.class, nodeDescriptionListener);
     }
 
     public void close() {
-        conn.removeListener(XBeeAtResponseFrame.class, listener);
+        conn.removeListener(XBeeAtResponseFrame.class, atResponseListener);
+        conn.removeListener(XBeeNodeDescriptionContainer.class, nodeDescriptionListener);
     }
 
     public int getDiscoveryTimeout() {
@@ -127,7 +129,7 @@ public class XBeeNodeDiscovery {
         putNode(localNode);
     }
 
-    private synchronized void processFrame(XBeeAtResponseFrame frame) {
+    private synchronized void processAtResponseFrame(XBeeAtResponseFrame frame) {
         if (frame.getSource() != null || frame.getStatus() != XBeeAtResponseFrame.STATUS_OK)
             return;
         String cmd = frame.getAtCommand();
@@ -148,15 +150,22 @@ public class XBeeNodeDiscovery {
             localNodeId = HexUtil.formatAscii(data, 0, data.length);
             localNodeAddressParts |= 8;
             rebuildLocalNode();
-        } else if (cmd.equals(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)) {
-            XBeeNodeDiscoveryResponseFrame nd = (XBeeNodeDiscoveryResponseFrame) frame;
-            putNode(new XBeeNode(nd.getAddress(), nd.getNodeId(), false));
         }
     }
 
-    private class FrameListener implements XBeeFrameListener<XBeeAtResponseFrame> {
+    private synchronized void processNodeDescription(XBeeNodeDescription nd) {
+        putNode(new XBeeNode(nd.getAddress(), nd.getNodeId(), false));
+    }
+
+    private class AtResponseListener implements XBeeFrameListener<XBeeAtResponseFrame> {
         public void frameReceived(XBeeAtResponseFrame frame) {
-            processFrame(frame);
+            processAtResponseFrame(frame);
+        }
+    }
+
+    private class NodeDescriptionListener implements XBeeFrameListener<XBeeNodeDescriptionContainer> {
+        public void frameReceived(XBeeNodeDescriptionContainer frame) {
+            processNodeDescription(frame.getDescription());
         }
     }
 }

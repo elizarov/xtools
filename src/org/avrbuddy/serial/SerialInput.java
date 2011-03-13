@@ -14,6 +14,7 @@ import java.util.TooManyListenersException;
  */
 class SerialInput extends InputStream implements SerialPortEventListener {
     private final InputStream in;
+    private long timeout;
 
     public SerialInput(SerialPort serialPort) throws IOException {
         this.in = serialPort.getInputStream();
@@ -29,7 +30,12 @@ class SerialInput extends InputStream implements SerialPortEventListener {
     public synchronized int read() throws IOException {
         while (in.available() == 0)
             try {
-                wait();
+                if (timeout == 0)
+                    wait();
+                else {
+                    wait(timeout);
+                    break;
+                }
             } catch (InterruptedException e) {
                 throw new InterruptedIOException("interrupted");
             }
@@ -51,5 +57,9 @@ class SerialInput extends InputStream implements SerialPortEventListener {
     public synchronized void drain() throws IOException {
         while (in.available() > 0)
             in.read();
+    }
+
+    public synchronized void setTimeout(long timeout) {
+        this.timeout = timeout;
     }
 }

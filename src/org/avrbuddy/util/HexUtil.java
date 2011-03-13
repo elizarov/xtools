@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream;
  * @author Roman Elizarov
  */
 public class HexUtil {
-    public static final String HEX_STRING = "0123456789abcdef";
+    public static final String HEX_STRING = "0123456789ABCDEF";
     public static final char[] HEX_ARRAY = HEX_STRING.toCharArray();
 
     public static StringBuilder appendByte(StringBuilder sb, byte b) {
@@ -23,20 +23,29 @@ public class HexUtil {
     }
 
     public static int parseNibble(char c) {
-        int x = HEX_STRING.indexOf(c);
+        int x = HEX_STRING.indexOf(Character.toUpperCase(c));
         if (x < 0)
             throw new IllegalArgumentException("Invalid hex char: " + c);
         return x;
     }
 
-    public static StringBuilder appendShort(StringBuilder sb, short x) {
-        appendByte(sb, (byte)(x >> 8));
-        appendByte(sb, (byte)x);
+    public static StringBuilder appendNibbles(StringBuilder sb, int x, int count) {
+        for (int i = count * 4; (i -= 4) >= 0;)
+            sb.append(HEX_ARRAY[(x >> i) & 0x0f]);
         return sb;
     }
 
-    public static String formatShort(short x) {
-        return appendShort(new StringBuilder(4), x).toString();
+    public static String formatNibbles(int x, int count) {
+        return appendNibbles(new StringBuilder(count), x, count).toString();
+    }
+
+    public static int parseNibbles(String s, int from, int to) {
+        int result = 0;
+        for (int i = from; i < to; i++) {
+            result <<= 4;
+            result |= parseNibble(s.charAt(i));
+        }
+        return result;
     }
 
     public static StringBuilder appendBytes(StringBuilder sb, byte[] bytes, int from, int to) {
@@ -50,11 +59,15 @@ public class HexUtil {
     }
 
     public static byte[] parseBytes(String s) {
-        int length = s.length();
+        return parseBytes(s, 0, s.length());
+    }
+
+    public static byte[] parseBytes(String s, int from, int to) {
+        int length = (to - from);
         if (length % 2 != 0)
             throw new IllegalArgumentException("Even number of hex digits expected");
         byte[] bytes = new byte[length / 2];
-        for (int i = 0; i < length; i += 2)
+        for (int i = from; i < length; i += 2)
             bytes[i / 2] = parseByte(s.charAt(i), s.charAt(i + 1));
         return bytes;
     }
@@ -104,5 +117,9 @@ public class HexUtil {
                 throw new IllegalArgumentException("Invalid data character: " + ch + "(code " + Integer.toHexString(ch) + ")");
         }
         return out.toByteArray();
+    }
+
+    public static short getBigEndianShort(byte[] frame, int i) {
+        return (short)(((frame[i] & 0xff) << 8) | (frame[i + 1] & 0xff));
     }
 }

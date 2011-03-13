@@ -17,7 +17,7 @@ public enum XBeeFrameType {
     EXPLICIT_RX(0x91),
     IO_SAMPLE(0x92),
     SENSOR_READ(0x94),
-    NODE_IDENTIFICATION(0x95);
+    NODE_ID(0x95);
 
     private final byte frameType;
 
