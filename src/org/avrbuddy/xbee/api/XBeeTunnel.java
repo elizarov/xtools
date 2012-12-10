@@ -60,6 +60,11 @@ class XBeeTunnel extends SerialConnection {
         in.setTimeout(timeout);
     }
 
+    @Override
+    public void setWriteTimeout(long timeout) throws IOException {
+        out.setTimeout(timeout);
+    }
+
     private class Input extends InputStream implements XBeeFrameListener<XBeeRxFrame> {
         private final byte[] buffer = new byte[IN_BUFFER_SIZE];
         private int readIndex = 0;
@@ -146,6 +151,7 @@ class XBeeTunnel extends SerialConnection {
     private class Output extends OutputStream {
         private final byte[] buffer = new byte[OUT_PACKET_SIZE];
         private int size;
+        private long timeout;
 
         @Override
         public synchronized void write(int b) throws IOException {
@@ -164,12 +170,17 @@ class XBeeTunnel extends SerialConnection {
             if (size > 0) {
                 conn.sendFramesWithId(XBeeTxFrame.newBuilder(destination).setData(Arrays.copyOf(buffer, size)));
                 size = 0;
+                // todo: wait for ACK or timeout
             }
         }
 
         @Override
         public void close() throws IOException {
             closeImpl();
+        }
+
+        public void setTimeout(long timeout) {
+            this.timeout = timeout;
         }
     }
 }

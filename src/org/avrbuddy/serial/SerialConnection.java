@@ -16,6 +16,7 @@ public abstract class SerialConnection implements Closeable {
     public abstract void resetHost() throws IOException;
     public abstract void drainInput() throws IOException;
     public abstract void setReadTimeout(long timeout) throws IOException;
+    public abstract void setWriteTimeout(long timeout) throws IOException;
 
     public void setPortConnectionAction(Runnable action) {}
 

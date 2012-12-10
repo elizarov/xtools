@@ -1,32 +1,19 @@
 package org.avrbuddy.serial;
 
-import gnu.io.SerialPort;
-import gnu.io.SerialPortEvent;
-import gnu.io.SerialPortEventListener;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.util.TooManyListenersException;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author Roman Elizarov
  */
-class SerialInput extends InputStream implements SerialPortEventListener {
+class SerialInput extends InputStream {
     private final InputStream in;
     private volatile Runnable portConnectionAction;
     private long timeout;
 
-    public SerialInput(SerialPort serialPort) throws IOException {
-        this.in = serialPort.getInputStream();
-        try {
-            serialPort.addEventListener(this);
-        } catch (TooManyListenersException e) {
-            throw new IOException(e);
-        }
-        serialPort.notifyOnDataAvailable(true);
-        serialPort.notifyOnDSR(true);
+    public SerialInput(InputStream in) throws IOException {
+        this.in = in;
     }
 
     @Override
@@ -55,21 +42,14 @@ class SerialInput extends InputStream implements SerialPortEventListener {
         in.close();
     }
 
-    public void serialEvent(SerialPortEvent event) {
-        switch (event.getEventType()) {
-            case SerialPortEvent.DATA_AVAILABLE:
-                synchronized (this) {
-                    notifyAll();
-                }
-                break;
-            case SerialPortEvent.DSR:
-                if (!event.getOldValue() && event.getNewValue()) {
-                    Runnable action = portConnectionAction;
-                    if (action != null)
-                        action.run();
-                    break;
-                }
-        }
+    public void connected() {
+        Runnable action = portConnectionAction;
+        if (action != null)
+            action.run();
+    }
+
+    public synchronized void dataAvailable() {
+        notifyAll();
     }
 
     public synchronized void drain() throws IOException {

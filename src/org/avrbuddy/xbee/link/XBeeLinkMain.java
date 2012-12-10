@@ -13,6 +13,8 @@ import java.io.OutputStream;
  * @author Roman Elizarov
  */
 public class XBeeLinkMain {
+    private static final long WRITE_TIMEOUT = 100; // 100ms
+
     public static void main(String[] args) throws IOException {
         if (args.length != 4) {
             System.err.println("Usage: " + XBeeLinkMain.class.getName() + " <XBee-port> <baud> <link-node-id> <link-port>");
@@ -38,6 +40,9 @@ public class XBeeLinkMain {
 
         final SerialConnection tunnel = conn.openTunnel(linkNode.getAddress());
         final SerialConnection link = SerialConnection.open(linkPort, baud);
+
+        tunnel.setWriteTimeout(WRITE_TIMEOUT);
+        link.setWriteTimeout(WRITE_TIMEOUT);
 
         link.setPortConnectionAction(new Runnable() {
             @Override
