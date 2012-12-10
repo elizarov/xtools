@@ -109,8 +109,13 @@ public class CommandProcessor {
                     conn.sendFramesWithId(XBeeAtFrame.newBuilder(destination)
                             .setAtCommand(cmd)
                             .setData(s.length == 1 ? new byte[0] : HexUtil.parseAscii(s[1]))));
-            log.info(cmd + ": " + fmtStatus(responses, 1) +
-                    (responses.isEmpty() ? "" : " " + HexUtil.formatAscii(responses.get(0).getData())));
+            String result = "";
+            if (!responses.isEmpty()) {
+                byte[] data = responses.get(0).getData();
+                if (data.length > 0)
+                    result = " " + XBeeUtil.formatAtValue(cmd, data);
+            }
+            log.info(cmd + ": " + fmtStatus(responses, 1) + result);
             return;
         }
         throw new IllegalArgumentException("Command not recognized: " + cmd);

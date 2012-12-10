@@ -54,6 +54,10 @@ public class HexUtil {
         return sb;
     }
 
+    public static String formatBytes(byte[] bytes) {
+        return formatBytes(bytes, 0, bytes.length);
+    }
+
     public static String formatBytes(byte[] bytes, int from, int to) {
         return appendBytes(new StringBuilder((to - from) * 2), bytes, from, to).toString();
     }

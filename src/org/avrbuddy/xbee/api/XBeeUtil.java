@@ -17,6 +17,10 @@ public class XBeeUtil {
 
     private static final List<String> ASCII_AT_COMMANDS = Arrays.asList("NI", "ND", "DN");
 
+    public static String formatAtValue(String atCommand, byte[] data) {
+        return formatAtValue(atCommand, data, 0, data.length);
+    }
+
     public static String formatAtValue(String atCommand, byte[] data, int from, int to) {
         return ASCII_AT_COMMANDS.contains(atCommand) ? HexUtil.formatAscii(data, from, to) : HexUtil.formatBytes(data, from, to);
     }
