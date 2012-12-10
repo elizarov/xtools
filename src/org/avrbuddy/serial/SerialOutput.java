@@ -1,36 +1,37 @@
 package org.avrbuddy.serial;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
  * @author Roman Elizarov
  */
-class SerialOutput extends OutputStream {
-    private final OutputStream out;
+class SerialOutput extends BufferedOutputStream {
     private volatile boolean enabled;
     private long timeout;
 
     public SerialOutput(OutputStream out) {
+        super(out);
         this.out = out;
     }
 
     @Override
-    public void write(int b) throws IOException {
+    public synchronized void write(int b) throws IOException {
         if (waitEnabled())
-            out.write(b);
+            super.write(b);
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
         if (waitEnabled())
-            out.write(b, off, len);
+            super.write(b, off, len);
     }
 
     @Override
     public void flush() throws IOException {
         if (waitEnabled())
-            out.flush();
+            super.flush();
     }
 
     public synchronized void setEnabled(boolean enabled) {
@@ -53,7 +54,6 @@ class SerialOutput extends OutputStream {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
-
                 }
                 time = System.currentTimeMillis();
             }

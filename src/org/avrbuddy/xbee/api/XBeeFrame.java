@@ -58,6 +58,16 @@ public class XBeeFrame {
         return frame;
     }
 
+    // specific to a frame type
+    public byte getStatus() {
+        return 0;
+    }
+
+    // specific to a frame type
+    public byte[] getData() {
+        return new byte[0];
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

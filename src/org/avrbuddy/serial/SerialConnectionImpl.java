@@ -107,6 +107,17 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     }
 
     @Override
+    public void setHardwareFlowControl(int mode) throws IOException {
+        try {
+            serialPort.setFlowControlMode(
+                    ((mode & SerialConnection.FLOW_CONTROL_IN) == 0  ? 0 : SerialPort.FLOWCONTROL_RTSCTS_IN) |
+                    ((mode & SerialConnection.FLOW_CONTROL_OUT) == 0 ? 0 : SerialPort.FLOWCONTROL_RTSCTS_OUT));
+        } catch (UnsupportedCommOperationException e) {
+            throw new IOException(e);
+        }
+    }
+
+    @Override
     public void setPortConnectionAction(Runnable action) {
         in.setPortConnectionAction(action);
     }

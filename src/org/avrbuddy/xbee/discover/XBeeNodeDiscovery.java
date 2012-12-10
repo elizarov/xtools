@@ -29,8 +29,8 @@ public class XBeeNodeDiscovery {
     private String localNodeId;
 
     private XBeeNode localNode;
-    private final Map<String, XBeeNode> nodeById = new HashMap<>();
-    private final Map<XBeeAddress, XBeeNode> nodeByAddress = new HashMap<>();
+    private final Map<String, XBeeNode> nodeById = new HashMap<String, XBeeNode>();
+    private final Map<XBeeAddress, XBeeNode> nodeByAddress = new HashMap<XBeeAddress, XBeeNode>();
 
     public XBeeNodeDiscovery(XBeeConnection conn) {
         this.conn = conn;
@@ -116,7 +116,7 @@ public class XBeeNodeDiscovery {
     }
 
     public synchronized List<XBeeNode> getAllNodes() {
-        return new ArrayList<>(nodeByAddress.values());
+        return new ArrayList<XBeeNode>(nodeByAddress.values());
     }
 
     private void putNode(XBeeNode node) {
@@ -137,27 +137,22 @@ public class XBeeNodeDiscovery {
             return;
         String cmd = frame.getAtCommand();
         byte[] data = frame.getData();
-        switch (cmd) {
-            case "SH":
-                System.arraycopy(data, 0, localNodeAddressBytes, 0, 4);
-                localNodeAddressParts |= 1;
-                rebuildLocalNode();
-                break;
-            case "SL":
-                System.arraycopy(data, 0, localNodeAddressBytes, 4, 4);
-                localNodeAddressParts |= 2;
-                rebuildLocalNode();
-                break;
-            case "MY":
-                System.arraycopy(data, 0, localNodeAddressBytes, 8, 2);
-                localNodeAddressParts |= 4;
-                rebuildLocalNode();
-                break;
-            case "NI":
-                localNodeId = HexUtil.formatAscii(data, 0, data.length);
-                localNodeAddressParts |= 8;
-                rebuildLocalNode();
-                break;
+        if (cmd.equals("SH")) {
+            System.arraycopy(data, 0, localNodeAddressBytes, 0, 4);
+            localNodeAddressParts |= 1;
+            rebuildLocalNode();
+        } else if (cmd.equals("SL")) {
+            System.arraycopy(data, 0, localNodeAddressBytes, 4, 4);
+            localNodeAddressParts |= 2;
+            rebuildLocalNode();
+        } else if (cmd.equals("MY")) {
+            System.arraycopy(data, 0, localNodeAddressBytes, 8, 2);
+            localNodeAddressParts |= 4;
+            rebuildLocalNode();
+        } else if (cmd.equals("NI")) {
+            localNodeId = HexUtil.formatAscii(data, 0, data.length);
+            localNodeAddressParts |= 8;
+            rebuildLocalNode();
         }
     }
 

@@ -10,30 +10,43 @@ import java.util.Arrays;
 public class XBeeAddress {
     public static final int ADDRESS_LENGTH = 10;
 
-    public static final XBeeAddress BROADCAST = new XBeeAddress(new byte[] {0, 0, 0, 0, 0, 0, (byte)0xff, (byte)0xff}, 0);
-    public static final XBeeAddress COORDINATOR = new XBeeAddress(new byte[] {0, 0, 0, 0, 0, 0, 0, 0}, 0);
-
     public static final String BROADCAST_STRING = "*";
+    public static final String COORDINATOR_STRING = "0";
+
+    public static final XBeeAddress BROADCAST = new XBeeAddress(new byte[] {0, 0, 0, 0, 0, 0, (byte)0xff, (byte)0xff}, 0, BROADCAST_STRING);
+    public static final XBeeAddress COORDINATOR = new XBeeAddress(new byte[] {0, 0, 0, 0, 0, 0, 0, 0}, 0, COORDINATOR_STRING);
 
     public static final String S_PREFIX = "[";
     public static final String S_SUFFIX = "]";
 
     private final byte[] address = new byte[ADDRESS_LENGTH];
+    private String string;
 
     public static XBeeAddress valueOf(byte[] data, int offset) {
         if (data.length - offset >= ADDRESS_LENGTH)
             for (int i = 0; i < ADDRESS_LENGTH; i++)
                 if (data[i + offset] != BROADCAST.address[i])
-                    return new XBeeAddress(data, offset);
+                    return new XBeeAddress(data, offset, null);
         return BROADCAST;
     }
 
     public static XBeeAddress valueOf(String s) {
         if (s.equals(BROADCAST_STRING))
              return BROADCAST;
+        if (s.equals(COORDINATOR_STRING))
+             return COORDINATOR;
+        if (!s.startsWith(S_PREFIX) || !s.endsWith(S_SUFFIX))
+            throw new IllegalArgumentException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
+        s = s.substring(S_PREFIX.length(), s.length() - S_PREFIX.length() - S_SUFFIX.length());
+        if (s.equals(BROADCAST_STRING))
+            return BROADCAST;
+        if (s.equals(COORDINATOR_STRING))
+            return COORDINATOR;
         XBeeAddress result = new XBeeAddress(s);
         if (result.equals(BROADCAST))
             return BROADCAST;
+        if (result.equals(COORDINATOR))
+            return COORDINATOR;
         return result;
     }
 
@@ -42,18 +55,16 @@ public class XBeeAddress {
         address[9] = (byte)0xfe;
     }
 
-    private XBeeAddress(byte[] data, int offset) {
+    private XBeeAddress(byte[] data, int offset, String s) {
         this();
         System.arraycopy(data, offset, address, 0, Math.min(data.length - offset, address.length));
+        this.string = s;
     }
 
     private XBeeAddress(String s) {
         this();
-        if (!s.startsWith(S_PREFIX) || !s.endsWith(S_SUFFIX))
-            throw new IllegalArgumentException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
-        s = s.substring(S_PREFIX.length(), s.length() - S_PREFIX.length() - S_SUFFIX.length());
         if (s.length() < 16)
-            throw new IllegalArgumentException("Address string is two short. Expected <64bits>[:<16bits>]");
+            throw new IllegalArgumentException("Address string is two short. Expected <64-BIT-HEX>[:<16-BIT-HEX>]");
         int p = 0;
         for (int i = 0; i < address.length && p < s.length(); i++) {
             if (i == 8)
@@ -77,8 +88,8 @@ public class XBeeAddress {
 
     @Override
     public String toString() {
-        if (this == BROADCAST)
-            return BROADCAST_STRING;
+        if (string != null)
+            return string;
         StringBuilder sb = new StringBuilder();
         sb.append(S_PREFIX);
         for (int i = 0; i < address.length; i++) {
@@ -87,7 +98,8 @@ public class XBeeAddress {
             HexUtil.appendByte(sb, address[i]);
         }
         sb.append(S_SUFFIX);
-        return sb.toString();
+        string = sb.toString();
+        return string;
     }
 
     @Override

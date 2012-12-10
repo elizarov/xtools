@@ -89,6 +89,10 @@ public class HexUtil {
         return sb;
     }
 
+    public static String formatAscii(byte[] data) {
+        return formatAscii(data, 0, data.length);
+    }
+
     public static String formatAscii(byte[] data, int from, int to) {
         return appendAscii(new StringBuilder(), data, from, to).toString();
     }
