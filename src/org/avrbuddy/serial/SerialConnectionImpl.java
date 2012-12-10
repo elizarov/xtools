@@ -71,6 +71,11 @@ class SerialConnectionImpl extends SerialConnection {
     }
 
     @Override
+    public void setPortConnectionAction(Runnable action) {
+        in.setPortConnectionAction(action);
+    }
+
+    @Override
     public String toString() {
         return port;
     }

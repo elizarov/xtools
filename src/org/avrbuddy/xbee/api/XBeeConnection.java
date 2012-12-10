@@ -7,7 +7,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -211,7 +214,7 @@ public class XBeeConnection {
         }
     }
 
-    public void resetHost(XBeeAddress destination) throws IOException {
+    public void resetRemoteHost(XBeeAddress destination) throws IOException {
         waitResponses(2000,
                 sendFramesWithId(
                         XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{5}),
@@ -226,5 +229,15 @@ public class XBeeConnection {
             tunnel.close();
             throw e;
         }
+    }
+
+    public void changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
+        sendFramesWithId(
+                XBeeAtFrame.newBuilder(destination)
+                        .setAtCommand("DH")
+                        .setData(target == null ? new byte[0] : target.getHighAddressBytes()),
+                XBeeAtFrame.newBuilder(destination)
+                        .setAtCommand("DL")
+                        .setData(target == null ? new byte[0] : target.getLowAddressBytes()));
     }
 }

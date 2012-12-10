@@ -11,12 +11,11 @@ import java.io.IOException;
 public class XBeeConsoleMain {
     public static void main(String[] args) throws IOException {
         if (args.length != 2) {
-            System.err.println("Usage: " + XBeeConsoleMain.class.getName() + " <port> <baud>");
+            System.err.println("Usage: " + XBeeConsoleMain.class.getName() + " <XBee-port> <baud>");
             return;
         }
         String port = args[0];
         int baud = Integer.parseInt(args[1]);
-        System.err.println("Using " + port + " " + baud);
         XBeeConnection conn = XBeeConnection.open(SerialConnection.open(port, baud));
         new XBeeConsoleParser(conn).start();
     }

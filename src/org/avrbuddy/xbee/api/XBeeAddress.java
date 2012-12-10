@@ -15,6 +15,9 @@ public class XBeeAddress {
 
     public static final String BROADCAST_STRING = "*";
 
+    public static final String S_PREFIX = "[";
+    public static final String S_SUFFIX = "]";
+
     private final byte[] address = new byte[ADDRESS_LENGTH];
 
     public static XBeeAddress valueOf(byte[] data, int offset) {
@@ -46,6 +49,9 @@ public class XBeeAddress {
 
     private XBeeAddress(String s) {
         this();
+        if (!s.startsWith(S_PREFIX) || !s.endsWith(S_SUFFIX))
+            throw new IllegalArgumentException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
+        s = s.substring(S_PREFIX.length(), s.length() - S_PREFIX.length() - S_SUFFIX.length());
         if (s.length() < 16)
             throw new IllegalArgumentException("Address string is two short. Expected <64bits>[:<16bits>]");
         int p = 0;
@@ -74,11 +80,13 @@ public class XBeeAddress {
         if (this == BROADCAST)
             return BROADCAST_STRING;
         StringBuilder sb = new StringBuilder();
+        sb.append(S_PREFIX);
         for (int i = 0; i < address.length; i++) {
             if (i == 8)
                 sb.append(':');
             HexUtil.appendByte(sb, address[i]);
         }
+        sb.append(S_SUFFIX);
         return sb.toString();
     }
 

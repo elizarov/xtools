@@ -16,6 +16,7 @@ import java.util.Map;
 public class XBeeNodeDiscovery {
     public static final int MIN_DISCOVERY_TIMEOUT = 0x20;
     public static final int MAX_DISCOVERY_TIMEOUT = 0xff;
+    public static final int DISCOVER_ATTEMPTS = 3;
 
     private final XBeeConnection conn;
     private final AtResponseListener atResponseListener = new AtResponseListener();
@@ -28,8 +29,8 @@ public class XBeeNodeDiscovery {
     private String localNodeId;
 
     private XBeeNode localNode;
-    private final Map<String, XBeeNode> nodeById = new HashMap<String, XBeeNode>();
-    private final Map<XBeeAddress, XBeeNode> nodeByAddress = new HashMap<XBeeAddress, XBeeNode>();
+    private final Map<String, XBeeNode> nodeById = new HashMap<>();
+    private final Map<XBeeAddress, XBeeNode> nodeByAddress = new HashMap<>();
 
     public XBeeNodeDiscovery(XBeeConnection conn) {
         this.conn = conn;
@@ -74,52 +75,54 @@ public class XBeeNodeDiscovery {
     }
 
     public XBeeNode getOrDiscoverLocalNode() throws IOException {
-        return getOrDiscoverById(null);
+        return getOrDiscoverByNodeId(null, 1);
     }
 
-    public XBeeNode getOrDiscoverById(String id) throws IOException {
-        XBeeNode node = getById(id);
-        if (node != null)
-            return node;
-        if (id != null) {
-            discoverRemoteNode(id);
-        } else {
-            discoverLocalNode();
-        }
-        long timeout = discoveryTimeout * 100L;
-        synchronized (this) {
-            node = getById(id);
-            long time = System.currentTimeMillis();
-            while (node == null && timeout > 0) {
-                try {
-                    wait(timeout);
-                } catch (InterruptedException e) {
-                    throw (IOException) new InterruptedIOException(e.getMessage()).initCause(e);
-                }
-                long nextTime = System.currentTimeMillis();
-                timeout -= Math.max(1, nextTime - time);
-                time = nextTime;
+    public XBeeNode getOrDiscoverByNodeId(String id, int attempts) throws IOException {
+        XBeeNode node = getByNodeId(id);
+        for (int attempt = 0; node == null && attempt < attempts; attempt++) {
+            if (id != null) {
+                discoverRemoteNode(id);
+            } else {
+                discoverLocalNode();
             }
+            waitUntilDiscoveredOrTimeout(id);
+            node = getByNodeId(id);
         }
         return node;
+    }
+
+    private synchronized void waitUntilDiscoveredOrTimeout(String id) throws IOException {
+        long timeout = discoveryTimeout * 100L;
+        long time = System.currentTimeMillis();
+        while (getByNodeId(id) == null && timeout > 0) {
+            try {
+                wait(timeout);
+            } catch (InterruptedException e) {
+                throw (IOException) new InterruptedIOException(e.getMessage()).initCause(e);
+            }
+            long nextTime = System.currentTimeMillis();
+            timeout -= Math.max(1, nextTime - time);
+            time = nextTime;
+        }
     }
 
     public XBeeNode getLocalNode() {
         return localNode;
     }
 
-    public synchronized XBeeNode getById(String id) {
+    public synchronized XBeeNode getByNodeId(String id) {
         return id == null ? localNode : nodeById.get(id);
     }
 
     public synchronized List<XBeeNode> getAllNodes() {
-        return new ArrayList<XBeeNode>(nodeByAddress.values());
+        return new ArrayList<>(nodeByAddress.values());
     }
 
     private void putNode(XBeeNode node) {
         nodeById.put(node.getId(), node);
         nodeByAddress.put(node.getAddress(), node);
-        notify();
+        notifyAll();
     }
 
     private void rebuildLocalNode() {
@@ -134,22 +137,27 @@ public class XBeeNodeDiscovery {
             return;
         String cmd = frame.getAtCommand();
         byte[] data = frame.getData();
-        if (cmd.equals("SH")) {
-            System.arraycopy(data, 0, localNodeAddressBytes, 0, 4);
-            localNodeAddressParts |= 1;
-            rebuildLocalNode();
-        } else if (cmd.equals("SL")) {
-            System.arraycopy(data, 0, localNodeAddressBytes, 4, 4);
-            localNodeAddressParts |= 2;
-            rebuildLocalNode();
-        } else if (cmd.equals("MY")) {
-            System.arraycopy(data, 0, localNodeAddressBytes, 8, 2);
-            localNodeAddressParts |= 4;
-            rebuildLocalNode();
-        } else if (cmd.equals("NI")) {
-            localNodeId = HexUtil.formatAscii(data, 0, data.length);
-            localNodeAddressParts |= 8;
-            rebuildLocalNode();
+        switch (cmd) {
+            case "SH":
+                System.arraycopy(data, 0, localNodeAddressBytes, 0, 4);
+                localNodeAddressParts |= 1;
+                rebuildLocalNode();
+                break;
+            case "SL":
+                System.arraycopy(data, 0, localNodeAddressBytes, 4, 4);
+                localNodeAddressParts |= 2;
+                rebuildLocalNode();
+                break;
+            case "MY":
+                System.arraycopy(data, 0, localNodeAddressBytes, 8, 2);
+                localNodeAddressParts |= 4;
+                rebuildLocalNode();
+                break;
+            case "NI":
+                localNodeId = HexUtil.formatAscii(data, 0, data.length);
+                localNodeAddressParts |= 8;
+                rebuildLocalNode();
+                break;
         }
     }
 

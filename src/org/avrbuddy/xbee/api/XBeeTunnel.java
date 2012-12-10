@@ -47,7 +47,7 @@ class XBeeTunnel extends SerialConnection {
 
     @Override
     public void resetHost() throws IOException {
-        conn.resetHost(destination);
+        conn.resetRemoteHost(destination);
     }
 
     @Override
@@ -69,6 +69,11 @@ class XBeeTunnel extends SerialConnection {
         private boolean closed;
 
         @Override
+        public synchronized int available() throws IOException {
+            return closed ? 0 : (writeIndex - readIndex + IN_BUFFER_SIZE) % IN_BUFFER_SIZE;
+        }
+
+        @Override
         public synchronized int read() throws IOException {
             while (!closed && readIndex == writeIndex)
                 try {
@@ -85,7 +90,7 @@ class XBeeTunnel extends SerialConnection {
                 return -1;
             byte b = buffer[readIndex];
             readIndex = (readIndex + 1) % IN_BUFFER_SIZE;
-            return b;
+            return b & 0xff;
         }
 
         @Override
