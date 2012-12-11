@@ -7,7 +7,6 @@ import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeDiscovery;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -15,7 +14,9 @@ import java.util.logging.Logger;
  * @author Roman Elizarov
  */
 public class CommandProcessor {
-    private static final Logger log = Log.get(CommandProcessor.class);
+    private static final Logger log = Log.getLogger(CommandProcessor.class);
+
+    public static final String COMMENT_PREFIX = "#";
 
     public static final String CMD_DISCOVER = "DISCOVER";
     public static final String CMD_SEND = "SEND";
@@ -26,9 +27,6 @@ public class CommandProcessor {
     public static final String NODE_LOCAL = ".";
     public static final String NODE_ID_PREFIX = "@";
 
-    public static final long SEND_TIMEOUT = XBeeConnection.DEFAULT_TIMEOUT;
-    public static final long AT_TIMEOUT = XBeeConnection.DEFAULT_TIMEOUT;
-
     private final XBeeConnection conn;
     private final XBeeNodeDiscovery discovery;
 
@@ -37,98 +35,104 @@ public class CommandProcessor {
         this.discovery = discovery;
     }
 
-    public void processCommand(String line) throws InterruptedException {
+    public String processCommand(String line) throws InterruptedException {
         try {
-            processImpl(line);
-        } catch (IllegalArgumentException e) {
+            return processImpl(line);
+        } catch (InvalidCommandException e) {
             log.log(Level.WARNING, e.getMessage());
             helpCommands();
+        } catch (IllegalArgumentException e) {
+            log.log(Level.WARNING, e.getMessage());
         } catch (IOException e) {
             log.log(Level.SEVERE, "Failed", e);
         }
+        return null;
     }
 
-    private void processImpl(String line) throws IllegalArgumentException, IOException {
+    private String processImpl(String line) throws IllegalArgumentException, IOException {
         line = line.trim();
-        if (line.isEmpty()) {
-            helpCommands();
-            return;
-        }
+        if (line.isEmpty() || line.startsWith(COMMENT_PREFIX))
+            return null;
         log.fine("Processing '" + line + "'");
         String[] s = line.split("\\s+", 2);
         XBeeAddress destination = resolveNodeAddress(s[0]);
         if (destination != null) {
             if (s.length < 2)
-                throw new IllegalArgumentException("command name is missing");
+                throw new InvalidCommandException("command name is missing");
             s = s[1].split("\\s+", 2);
         }
         String cmd = s[0];
         String args = s.length > 1 ? s[1] : null;
         if (cmd.equalsIgnoreCase(CMD_DISCOVER)) {
             if (args != null)
-                throw new IllegalArgumentException(CMD_DISCOVER + ": unexpected argument");
+                throw new InvalidCommandException(CMD_DISCOVER + ": unexpected argument");
             if (destination == null)
                 destination = discovery.getOrDiscoverLocalNode().getAddress();
-            log.info(CMD_DISCOVER + ": " + destination);
-            return;
+            return CMD_DISCOVER + ": " + destination;
         }
         if (cmd.equalsIgnoreCase(CMD_SEND)) {
             if (destination == null)
                 destination = XBeeAddress.BROADCAST;
             if (args == null)
-                throw new IllegalArgumentException(CMD_SEND + ": test is missing");
-            List<XBeeFrameWithId> responses =
-                    conn.waitResponses(SEND_TIMEOUT,
+                throw new InvalidCommandException(CMD_SEND + ": text is missing");
+            XBeeFrameWithId[] responses =
+                    conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                             conn.sendFramesWithId(XBeeTxFrame.newBuilder()
-                                .setDestination(destination)
-                                .setData(HexUtil.parseAscii(args))));
-            log.info(CMD_SEND + ": " + fmtStatus(responses, 1));
-            return;
+                                    .setDestination(destination)
+                                    .setData(HexUtil.parseAscii(args))));
+            return CMD_SEND + ": " + fmtStatus(responses);
         }
         if (cmd.equalsIgnoreCase(CMD_DEST)) {
             XBeeAddress target = args == null ?
                     discovery.getOrDiscoverLocalNode().getAddress() :
                     resolveNodeAddress(args);
-            List<XBeeFrameWithId> responses = conn.changeRemoteDestination(destination, target);
-            log.info(CMD_DEST + ": " + fmtStatus(responses, 2));
-            return;
+            XBeeFrameWithId[] responses = conn.changeRemoteDestination(destination, target);
+            return CMD_DEST + ": " + fmtStatus(responses);
         }
         if (cmd.equalsIgnoreCase(CMD_RESET)) {
-            List<XBeeFrameWithId> responses = conn.resetRemoteHost(destination);
-            log.info(CMD_RESET + ": " + fmtStatus(responses, 2));
-            return;
+            XBeeFrameWithId[] responses = conn.resetRemoteHost(destination);
+            return CMD_RESET + ": " + fmtStatus(responses);
         }
         if (cmd.equalsIgnoreCase(CMD_AVR)) {
             if (destination == null)
-                throw new IllegalArgumentException(CMD_AVR + ": node is missing");
+                throw new InvalidCommandException(CMD_AVR + ": node is missing");
             conn.openArvProgrammer(destination).close();
-            return;
+            return CMD_AVR + ": OK";
         }
         if (cmd.length() == 2) {
-            List<XBeeFrameWithId> responses = conn.waitResponses(AT_TIMEOUT,
+            XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                     conn.sendFramesWithId(XBeeAtFrame.newBuilder(destination)
                             .setAtCommand(cmd)
                             .setData(s.length == 1 ? new byte[0] : HexUtil.parseAscii(s[1]))));
             String result = "";
-            if (!responses.isEmpty()) {
-                byte[] data = responses.get(0).getData();
+            if (responses[0] != null) {
+                byte[] data = responses[0].getData();
                 if (data.length > 0)
                     result = " " + XBeeUtil.formatAtValue(cmd, data);
             }
-            log.info(cmd + ": " + fmtStatus(responses, 1) + result);
-            return;
+            return cmd + ": " + fmtStatus(responses) + result;
         }
-        throw new IllegalArgumentException("Command not recognized: " + cmd);
+        throw new InvalidCommandException("Command not recognized: " + cmd);
     }
 
-    private String fmtStatus(List<XBeeFrameWithId> responses, int expectedSize) {
-        if (responses.size() < expectedSize)
-            return "TIMEOUT";
-        int status = Integer.MAX_VALUE;
-        for (XBeeFrameWithId response : responses) {
-            status = Math.min(status, response.getStatus() & 0xff);
+    private String fmtStatus(XBeeFrameWithId[] responses) {
+        byte status = conn.getStatus(responses);
+        switch (status) {
+            case XBeeConnection.STATUS_TIMEOUT:
+                return "TIMEOUT";
+            case XBeeAtResponseFrame.STATUS_OK:
+                return "OK";
+            case XBeeAtResponseFrame.STATUS_ERROR:
+                return "ERROR";
+            case XBeeAtResponseFrame.STATUS_INVALID_COMMAND:
+                return "INVALID COMMAND";
+            case XBeeAtResponseFrame.STATUS_TX_FAILURE:
+                return "TX FAILURE";
+            case XBeeAtResponseFrame.STATUS_INVALID_PARAMETER:
+                return "INVALID PARAMETER";
+            default:
+                return HexUtil.formatByte(status);
         }
-        return status == 0 ? "OK" : HexUtil.formatByte((byte)status);
     }
 
     public static void helpCommands() {

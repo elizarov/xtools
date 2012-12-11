@@ -1,8 +1,7 @@
 package org.avrbuddy.log;
 
-import org.omg.CORBA.IMP_LIMIT;
-
 import java.io.IOException;
+import java.util.Locale;
 import java.util.logging.*;
 
 /**
@@ -13,26 +12,38 @@ public class Log {
 
     private Log() {}
 
-    public static void init(Class<?> mainClass) throws IOException {
+    public static void init(Class<?> mainClass) {
         LogManager.getLogManager().reset();
         Logger root = Logger.getLogger("");
         Handler[] defaultHandlers = root.getHandlers();
         for (Handler handler : defaultHandlers)
             root.removeHandler(handler);
         root.setLevel(Level.FINEST);
+        Logger main = Logger.getLogger(mainClass.getName());
+
+        // Console
         ConsoleHandler console = new ConsoleHandler();
         console.setFormatter(new ConsoleFormatter());
         console.setLevel(System.getProperty("verbose") != null ? Level.FINE : Level.INFO);
         root.addHandler(console);
-        FileHandler file = new FileHandler(mainClass.getSimpleName() + ".%g.log", LOG_FILE_LIMIT, 2);
-        file.setFormatter(new FileFormatter());
-        file.setLevel(Level.FINEST);
-        root.addHandler(file);
-        Logger main = Logger.getLogger(mainClass.getName());
-        main.info("Started " + mainClass.getSimpleName());
+
+        // Log file
+        String logFile = mainClass.getSimpleName().toLowerCase(Locale.US) + ".log";
+        FileHandler file;
+        try {
+            file = new FileHandler(logFile, LOG_FILE_LIMIT, 1, true);
+            file.setFormatter(new FileFormatter());
+            file.setLevel(Level.FINEST);
+            root.addHandler(file);
+        } catch (IOException e) {
+            main.log(Level.SEVERE, "Failed to open log file " + logFile, e);
+        }
+
+        // Done
+        main.info("------------ Started " + mainClass.getSimpleName() + " ------------");
     }
 
-    public static Logger get(Class<?> loggingClass) {
+    public static Logger getLogger(Class<?> loggingClass) {
         return Logger.getLogger(loggingClass.getName());
     }
 }

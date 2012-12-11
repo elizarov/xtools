@@ -1,5 +1,6 @@
 package org.avrbuddy.xbee.discover;
 
+import org.avrbuddy.log.Log;
 import org.avrbuddy.util.HexUtil;
 import org.avrbuddy.xbee.api.*;
 
@@ -9,11 +10,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
 public class XBeeNodeDiscovery {
+    private static final Logger log = Log.getLogger(XBeeNodeDiscovery.class);
+
     public static final int MIN_DISCOVERY_TIMEOUT = 0x20;
     public static final int MAX_DISCOVERY_TIMEOUT = 0xff;
     public static final int DISCOVER_ATTEMPTS = 3;
@@ -53,25 +57,9 @@ public class XBeeNodeDiscovery {
         this.discoveryTimeout = discoveryTimeout;
     }
 
-    public void discover() throws IOException {
+    public void discoverAllNodes() throws IOException {
         discoverLocalNode();
         discoverRemoteNode(null);
-    }
-
-    private void discoverLocalNode() throws IOException {
-        conn.sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("SH"),
-                XBeeAtFrame.newBuilder().setAtCommand("SL"),
-                XBeeAtFrame.newBuilder().setAtCommand("MY"),
-                XBeeAtFrame.newBuilder().setAtCommand("NI"));
-    }
-
-    private void discoverRemoteNode(String id) throws IOException {
-        conn.sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("NT").setData(new byte[]{(byte) discoveryTimeout}),
-                XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
-                        .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))
-        );
     }
 
     public XBeeNode getOrDiscoverLocalNode() throws IOException {
@@ -92,6 +80,26 @@ public class XBeeNodeDiscovery {
         return node;
     }
 
+    // -------------- PRIVATE HELPER METHODS --------------
+
+    private void discoverLocalNode() throws IOException {
+        log.fine("Discover local node information");
+        conn.sendFramesWithId(
+                XBeeAtFrame.newBuilder().setAtCommand("SH"),
+                XBeeAtFrame.newBuilder().setAtCommand("SL"),
+                XBeeAtFrame.newBuilder().setAtCommand("MY"),
+                XBeeAtFrame.newBuilder().setAtCommand("NI"));
+    }
+
+    private void discoverRemoteNode(String id) throws IOException {
+        log.fine("Discover remote " + (id == null ? "nodes" : "node " + id));
+        conn.sendFramesWithId(
+                XBeeAtFrame.newBuilder().setAtCommand("NT").setData((byte) discoveryTimeout),
+                XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
+                        .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))
+        );
+    }
+
     private synchronized void waitUntilDiscoveredOrTimeout(String id) throws IOException {
         long timeout = discoveryTimeout * 100L;
         long time = System.currentTimeMillis();
@@ -107,16 +115,8 @@ public class XBeeNodeDiscovery {
         }
     }
 
-    public XBeeNode getLocalNode() {
-        return localNode;
-    }
-
-    public synchronized XBeeNode getByNodeId(String id) {
+    private synchronized XBeeNode getByNodeId(String id) {
         return id == null ? localNode : nodeById.get(id);
-    }
-
-    public synchronized List<XBeeNode> getAllNodes() {
-        return new ArrayList<XBeeNode>(nodeByAddress.values());
     }
 
     private void putNode(XBeeNode node) {

@@ -76,7 +76,7 @@ public class XBeeAtFrame extends XBeeFrameWithId {
             return data;
         }
 
-        public XBeeFrameWithId.Builder setData(byte[] data) {
+        public XBeeFrameWithId.Builder setData(byte... data) {
             if (data == null)
                 throw new NullPointerException();
             this.data = data;

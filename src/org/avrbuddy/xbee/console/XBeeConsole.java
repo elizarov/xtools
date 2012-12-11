@@ -11,18 +11,24 @@ import java.util.logging.Logger;
 /**
  * @author Roman Elizarov
  */
-public class XBeeConsoleMain {
-    private static final Logger log = Log.get(XBeeConsoleMain.class);
+public class XBeeConsole {
+    private static final Logger log = Log.getLogger(XBeeConsole.class);
 
     public static void main(String[] args) throws IOException {
-        Log.init(XBeeConsoleMain.class);
+        Log.init(XBeeConsole.class);
         if (args.length != 2) {
-            log.log(Level.SEVERE, "Usage: " + XBeeConsoleMain.class.getName() + " <XBee-port> <baud>");
+            log.log(Level.SEVERE, "Usage: " + XBeeConsole.class.getName() + " <XBee-port> <baud>");
             return;
         }
         String port = args[0];
         int baud = Integer.parseInt(args[1]);
-        XBeeConnection conn = XBeeConnection.open(SerialConnection.open(port, baud));
+        XBeeConnection conn;
+        try {
+            conn = XBeeConnection.open(SerialConnection.open(port, baud));
+        } catch (IOException e) {
+            log.log(Level.SEVERE, "Failed", e);
+            return;
+        }
         new XBeeConsoleThread(conn).start();
     }
 }

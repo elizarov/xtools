@@ -4,6 +4,7 @@ import org.avrbuddy.util.HexUtil;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * @author Roman Elizarov
@@ -22,6 +23,8 @@ public class XBeeUtil {
     }
 
     public static String formatAtValue(String atCommand, byte[] data, int from, int to) {
-        return ASCII_AT_COMMANDS.contains(atCommand) ? HexUtil.formatAscii(data, from, to) : HexUtil.formatBytes(data, from, to);
+        return ASCII_AT_COMMANDS.contains(atCommand.toUpperCase(Locale.US)) ?
+                HexUtil.formatAscii(data, from, to) :
+                HexUtil.formatBytes(data, from, to);
     }
 }

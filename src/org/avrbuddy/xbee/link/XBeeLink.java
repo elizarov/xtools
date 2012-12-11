@@ -13,26 +13,30 @@ import java.util.logging.Logger;
 /**
  * @author Roman Elizarov
  */
-public class XBeeLinkMain {
-    private static final Logger log = Log.get(XBeeLinkMain.class);
+public class XBeeLink {
+    private static final Logger log = Log.getLogger(XBeeLink.class);
 
     private static final long WRITE_TIMEOUT = 100; // 100ms
 
-    public static void main(String[] args) throws IOException {
-        Log.init(XBeeLinkMain.class);
+    public static void main(String[] args) {
+        Log.init(XBeeLink.class);
         if (args.length != 4) {
-            log.log(Level.SEVERE, "Usage: " + XBeeLinkMain.class.getName() + " <XBee-port> <baud> <link-node-id> <link-port>");
+            log.log(Level.SEVERE, "Usage: " + XBeeLink.class.getName() + " <XBee-port> <baud> <link-node-id> <link-port>");
             return;
         }
         String port = args[0];
         int baud = Integer.parseInt(args[1]);
         String linkNodeId = args[2];
         String linkPort = args[3];
-        XBeeConnection conn = XBeeConnection.open(SerialConnection.open(port, baud));
         try {
-            new XBeeLinkMain(conn, baud, linkNodeId, linkPort).go();
-        } finally {
-            conn.close();
+            XBeeConnection conn = XBeeConnection.open(SerialConnection.open(port, baud));
+            try {
+                new XBeeLink(conn, baud, linkNodeId, linkPort).go();
+            } finally {
+                conn.close();
+            }
+        } catch (IOException e) {
+            log.log(Level.SEVERE, "Failed", e);
         }
     }
 
@@ -41,7 +45,7 @@ public class XBeeLinkMain {
     private final String linkNodeId;
     private final String linkPort;
 
-    public XBeeLinkMain(XBeeConnection conn, int baud, String linkNodeId, String linkPort) {
+    public XBeeLink(XBeeConnection conn, int baud, String linkNodeId, String linkPort) {
         this.conn = conn;
         this.baud = baud;
         this.linkNodeId = linkNodeId;
@@ -75,8 +79,7 @@ public class XBeeLinkMain {
                 try {
                     tunnel.resetHost();
                 } catch (IOException e) {
-                    log.log(Level.SEVERE, "Failed to reset remote host");
-                    e.printStackTrace();
+                    log.log(Level.SEVERE, "Failed to reset remote host", e);
                 }
             }
         });

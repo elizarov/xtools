@@ -13,12 +13,7 @@ class ConsoleFormatter extends Formatter {
     public String format(LogRecord record) {
         String message = formatMessage(record);
         if (record.getThrown() == null)
-            return message + "\n";
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        pw.println(message);
-        record.getThrown().printStackTrace(pw);
-        pw.close();
-        return sw.toString();
+            return String.format("%s%n", message);
+        return String.format("%s: %s%n", message, record.getThrown().getMessage());
     }
 }
