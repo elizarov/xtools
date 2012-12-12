@@ -29,6 +29,8 @@ public class XBeeConsole {
             log.log(Level.SEVERE, "Failed", e);
             return;
         }
-        new XBeeConsoleThread(conn).start();
+        XBeeConsoleThread console = new XBeeConsoleThread(conn);
+        console.setDaemon(true);
+        console.start();
     }
 }
