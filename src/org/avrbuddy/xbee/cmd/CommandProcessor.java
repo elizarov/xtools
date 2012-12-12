@@ -103,7 +103,7 @@ public class CommandProcessor {
             XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                     conn.sendFramesWithId(XBeeAtFrame.newBuilder(destination)
                             .setAtCommand(cmd)
-                            .setData(s.length == 1 ? new byte[0] : HexUtil.parseAscii(s[1]))));
+                            .setData(s.length == 1 ? new byte[0] : XBeeUtil.parseAtValue(cmd, s[1]))));
             String result = "";
             if (responses[0] != null) {
                 byte[] data = responses[0].getData();

@@ -27,4 +27,10 @@ public class XBeeUtil {
                 HexUtil.formatAscii(data, from, to) :
                 HexUtil.formatBytes(data, from, to);
     }
+
+    public static byte[] parseAtValue(String atCommand, String value) {
+        return ASCII_AT_COMMANDS.contains(atCommand.toUpperCase(Locale.US)) ?
+                HexUtil.parseAscii(value) :
+                HexUtil.parseBytes(value);
+    }
 }

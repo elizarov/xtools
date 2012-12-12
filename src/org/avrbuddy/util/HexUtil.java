@@ -67,12 +67,14 @@ public class HexUtil {
     }
 
     public static byte[] parseBytes(String s, int from, int to) {
-        int length = (to - from);
-        if (length % 2 != 0)
-            throw new IllegalArgumentException("Even number of hex digits expected");
-        byte[] bytes = new byte[length / 2];
-        for (int i = from; i < length; i += 2)
-            bytes[i / 2] = parseByte(s.charAt(i), s.charAt(i + 1));
+        int len = to - from;
+        int ofs = from - len % 2;
+        int n = (len + 1) / 2;
+        byte[] bytes = new byte[n];
+        for (int i = 0; i < n; i++) {
+            int j = ofs + 2 * i;
+            bytes[i] = parseByte(j >= from ? s.charAt(j) : '0', s.charAt(j + 1));
+        }
         return bytes;
     }
 
