@@ -13,7 +13,7 @@ import java.util.logging.LogRecord;
 class FileFormatter extends Formatter {
     @Override
     public String format(LogRecord record) {
-        String time = new SimpleDateFormat("yyyyMMdd HHmmss.sss").format(new Date(record.getMillis()));
+        String time = new SimpleDateFormat("yyyyMMdd HHmmss.SSS").format(new Date(record.getMillis()));
         String name = record.getLoggerName();
         int i = name.lastIndexOf('.');
         if (i > 0)
