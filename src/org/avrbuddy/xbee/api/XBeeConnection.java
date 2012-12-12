@@ -132,6 +132,16 @@ public class XBeeConnection {
         return responses;
     }
 
+    public XBeeFrameWithId[] sendFramesWithIdSeriallyAndWait(long timeout, XBeeFrameWithId.Builder... builders) throws IOException {
+        XBeeFrameWithId[] responses = new XBeeFrameWithId[0];
+        for (XBeeFrameWithId.Builder builder : builders) {
+            responses = waitResponses(timeout, sendFramesWithId(builder));
+            if (getStatus(responses) != XBeeAtResponseFrame.STATUS_OK)
+                break;
+        }
+        return responses;
+    }
+
     public byte getStatus(XBeeFrameWithId[] responses) {
         int status = XBeeAtResponseFrame.STATUS_OK;
         for (XBeeFrameWithId response : responses) {
@@ -149,22 +159,19 @@ public class XBeeConnection {
     }
 
     public XBeeFrameWithId[] changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
-        return waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+        return sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination)
                         .setAtCommand("DH")
                         .setData(target == null ? new byte[0] : target.getHighAddressBytes()),
                 XBeeAtFrame.newBuilder(destination)
                         .setAtCommand("DL")
-                        .setData(target == null ? new byte[0] : target.getLowAddressBytes())));
+                        .setData(target == null ? new byte[0] : target.getLowAddressBytes()));
     }
 
     public XBeeFrameWithId[] resetRemoteHost(XBeeAddress destination) throws IOException {
-        XBeeFrameWithId[] result = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4})));
-        if (getStatus(result) != XBeeAtResponseFrame.STATUS_OK)
-            return result;
-        return waitResponses(DEFAULT_TIMEOUT,
-                sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0})));
+        return sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
     }
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
