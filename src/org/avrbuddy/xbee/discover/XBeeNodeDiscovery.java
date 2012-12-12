@@ -164,11 +164,17 @@ public class XBeeNodeDiscovery {
         public void frameReceived(XBeeAtResponseFrame frame) {
             processAtResponseFrame(frame);
         }
+
+        @Override
+        public void connectionClosed() {}
     }
 
     private class NodeDescriptionListener implements XBeeFrameListener<XBeeNodeDescriptionContainer> {
         public void frameReceived(XBeeNodeDescriptionContainer frame) {
             processNodeDescription(frame.getDescription());
         }
+
+        @Override
+        public void connectionClosed() {}
     }
 }

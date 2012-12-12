@@ -1,15 +1,22 @@
 package org.avrbuddy.xbee.link;
 
+import org.avrbuddy.log.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
 * @author Roman Elizarov
 */
 class XBeeLinkThread extends Thread {
+    private static final Logger log = Log.getLogger(XBeeLinkThread.class);
+
     private final InputStream in;
     private final OutputStream out;
+    private XBeeLinkThread other;
 
     public XBeeLinkThread(String name, InputStream in, OutputStream out) {
         super(name);
@@ -17,11 +24,28 @@ class XBeeLinkThread extends Thread {
         this.out = out;
     }
 
+    public void setOther(XBeeLinkThread other) {
+        this.other = other;
+    }
+
+    private void close() {
+        try {
+            in.close();
+        } catch (IOException e) {
+            log.log(Level.WARNING, "Failed to close input", e);
+        }
+        try {
+            out.close();
+        } catch (IOException e) {
+            log.log(Level.WARNING, "Failed to close output", e);
+        }
+    }
+
     @Override
     public void run() {
         byte[] buf = new byte[4096];
         try {
-            while (true) {
+            while (!Thread.interrupted()) {
                 int first = in.read();
                 if (first < 0)
                     break;
@@ -36,10 +60,10 @@ class XBeeLinkThread extends Thread {
                 out.flush();
             }
         } catch (IOException e) {
-            System.err.println(getName() + " I/O failed");
-            e.printStackTrace();
+            log.log(Level.SEVERE, "Failed", e);
             return;
         }
-        System.err.println(getName() + " end of stream");
+        close();
+        other.close();
     }
 }

@@ -1,16 +1,21 @@
 package org.avrbuddy.serial;
 
 import gnu.io.*;
+import org.avrbuddy.log.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.TooManyListenersException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
 class SerialConnectionImpl extends SerialConnection implements SerialPortEventListener {
+    private static final Logger log = Log.getLogger(SerialConnectionImpl.class);
+
     private final String port;
     private final SerialPort serialPort;
     private final SerialInput in;
@@ -83,6 +88,16 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     @Override
     public void close() {
         serialPort.close();
+        try {
+            in.close();
+        } catch (IOException e) {
+            log.log(Level.WARNING, "Failed to close input", e);
+        }
+        try {
+            out.close();
+        } catch (IOException e) {
+            log.log(Level.WARNING, "Failed to close output", e);
+        }
     }
 
     @Override
@@ -118,8 +133,8 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     }
 
     @Override
-    public void setPortConnectionAction(Runnable action) {
-        in.setPortConnectionAction(action);
+    public void setOnConnected(Runnable action) {
+        in.setOnConnected(action);
     }
 
     @Override

@@ -8,6 +8,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,7 +36,7 @@ public class XBeeConnection {
     private final DataOutputStream out;
     private final Thread reader;
     private final XBeeFrameListenerList listenerList = new XBeeFrameListenerList();
-
+    private final AtomicBoolean closed = new AtomicBoolean();
     private byte lastFrameId;
 
     // -------------- PUBLIC FACTORY --------------
@@ -55,11 +56,17 @@ public class XBeeConnection {
     // -------------- PUBLIC LOW-LEVER OPERATIONS --------------
 
     public void close() {
-        reader.interrupt();
+        if (!closed.compareAndSet(false, true))
+            return;
         serial.close();
+        Object[] listeners = listenerList.getListeners();
+        for (int i = 0; i < listeners.length; i += 2)
+            ((XBeeFrameListener) listeners[i + 1]).connectionClosed();
     }
 
     public <F> void addListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
+        if (closed.get())
+            return;
         listenerList.addListener(frameClass, listener);
     }
 
@@ -104,6 +111,13 @@ public class XBeeConnection {
                         responses.notifyAll();
                 }
             }
+
+            @Override
+            public void connectionClosed() {
+                synchronized (responses) {
+                    responses.notifyAll();
+                }
+            }
         };
         addListener(XBeeFrameWithId.class, listener);
         try {
@@ -145,10 +159,12 @@ public class XBeeConnection {
     }
 
     public XBeeFrameWithId[] resetRemoteHost(XBeeAddress destination) throws IOException {
+        XBeeFrameWithId[] result = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4})));
+        if (getStatus(result) != XBeeAtResponseFrame.STATUS_OK)
+            return result;
         return waitResponses(DEFAULT_TIMEOUT,
-                sendFramesWithId(
-                        XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{5}),
-                        XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4})));
+                sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0})));
     }
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
@@ -249,6 +265,7 @@ public class XBeeConnection {
         } catch (IOException e) {
             log.log(Level.SEVERE, "IO Exception", e);
         }
+        close();
     }
 
     @SuppressWarnings({"unchecked"})

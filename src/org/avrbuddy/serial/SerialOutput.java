@@ -1,6 +1,7 @@
 package org.avrbuddy.serial;
 
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -9,6 +10,7 @@ import java.io.OutputStream;
  */
 class SerialOutput extends BufferedOutputStream {
     private volatile boolean enabled;
+    private volatile boolean closed;
     private long timeout;
 
     public SerialOutput(OutputStream out) {
@@ -17,13 +19,13 @@ class SerialOutput extends BufferedOutputStream {
     }
 
     @Override
-    public synchronized void write(int b) throws IOException {
+    public void write(int b) throws IOException {
         if (waitEnabled())
             super.write(b);
     }
 
     @Override
-    public synchronized void write(byte[] b, int off, int len) throws IOException {
+    public void write(byte[] b, int off, int len) throws IOException {
         if (waitEnabled())
             super.write(b, off, len);
     }
@@ -42,26 +44,38 @@ class SerialOutput extends BufferedOutputStream {
         }
     }
 
-    private boolean waitEnabled() {
-        if (enabled)
-            return true;
-        synchronized (this) {
-            long time = System.currentTimeMillis();
-            long till = time + timeout;
-            while (!enabled && time < till) {
-                try {
-                    wait(till - time);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+    private boolean waitEnabled() throws IOException {
+        if (!enabled)
+            synchronized (this) {
+                long time = System.currentTimeMillis();
+                long till = time + timeout;
+                while (!closed && !enabled && time < till) {
+                    try {
+                        wait(till - time);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    time = System.currentTimeMillis();
                 }
-                time = System.currentTimeMillis();
             }
-            return enabled;
-        }
+        if (closed)
+            throw new IOException("Port is closed");
+        return enabled;
     }
 
     public void setTimeout(long timeout) {
         this.timeout = timeout;
+    }
+
+    @Override
+    public void close() throws IOException {
+        synchronized (this) {
+            if (closed)
+                return;
+            closed = true;
+            notifyAll();
+        }
+        super.close();
     }
 }

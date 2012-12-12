@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Roman Elizarov
@@ -19,6 +20,7 @@ class XBeeTunnel extends SerialConnection {
     private final XBeeAddress destination;
     private final Input in = new Input();
     private final Output out = new Output();
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     public XBeeTunnel(XBeeConnection conn, XBeeAddress destination) {
         this.conn = conn;
@@ -38,11 +40,15 @@ class XBeeTunnel extends SerialConnection {
 
     @Override
     public void close() {
-        closeImpl();
+        closeTunnel();
     }
 
-    private void closeImpl() {
+    private void closeTunnel() {
+        if (!closed.compareAndSet(false, true))
+            return;
         conn.removeListener(XBeeRxFrame.class, in);
+        in.close();
+        out.close();
     }
 
     @Override
@@ -91,7 +97,7 @@ class XBeeTunnel extends SerialConnection {
                 } catch (InterruptedException e) {
                     throw ((IOException) new InterruptedIOException().initCause(e));
                 }
-            if (readIndex == writeIndex)
+            if (closed || readIndex == writeIndex)
                 return -1;
             byte b = buffer[readIndex];
             readIndex = (readIndex + 1) % IN_BUFFER_SIZE;
@@ -130,12 +136,19 @@ class XBeeTunnel extends SerialConnection {
         }
 
         @Override
-        public void close() throws IOException {
+        public void connectionClosed() {
+            closeTunnel();
+        }
+
+        @Override
+        public void close() {
             synchronized (this) {
+                if (closed)
+                    return;
                 closed = true;
                 notifyAll();
             }
-            closeImpl();
+            closeTunnel();
         }
 
         public synchronized void drain() {
@@ -175,8 +188,8 @@ class XBeeTunnel extends SerialConnection {
         }
 
         @Override
-        public void close() throws IOException {
-            closeImpl();
+        public void close() {
+            closeTunnel();
         }
 
         public void setTimeout(long timeout) {

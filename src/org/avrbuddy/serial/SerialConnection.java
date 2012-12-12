@@ -27,7 +27,7 @@ public abstract class SerialConnection implements Closeable {
 
     public void setHardwareFlowControl(int mode) throws IOException {}
 
-    public void setPortConnectionAction(Runnable action) {}
+    public void setOnConnected(Runnable action) {}
 
     public static SerialConnection open(String port, int baud) throws IOException {
         log.info("Opening serial port " + port + " at " + baud);

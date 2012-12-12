@@ -18,7 +18,7 @@ public class XBeeLink {
 
     private static final long WRITE_TIMEOUT = 100; // 100ms
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         Log.init(XBeeLink.class);
         if (args.length != 4) {
             log.log(Level.SEVERE, "Usage: " + XBeeLink.class.getName() + " <XBee-port> <baud> <link-node-id> <link-port>");
@@ -52,7 +52,7 @@ public class XBeeLink {
         this.linkPort = linkPort;
     }
 
-    private void go() throws IOException {
+    private void go() throws IOException, InterruptedException {
         XBeeNodeDiscovery discovery = new XBeeNodeDiscovery(conn);
         XBeeNode linkNode = discovery.getOrDiscoverByNodeId(linkNodeId, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
         if (linkNode == null) {
@@ -66,26 +66,45 @@ public class XBeeLink {
         }
         conn.changeRemoteDestination(linkNode.getAddress(), localNode.getAddress());
 
-        final SerialConnection tunnel = conn.openTunnel(linkNode.getAddress());
-        final SerialConnection link = SerialConnection.open(linkPort, baud);
+        SerialConnection tunnel = conn.openTunnel(linkNode.getAddress());
+        SerialConnection link = SerialConnection.open(linkPort, baud);
 
         tunnel.setWriteTimeout(WRITE_TIMEOUT);
         link.setWriteTimeout(WRITE_TIMEOUT);
 
-        link.setPortConnectionAction(new Runnable() {
-            @Override
-            public void run() {
-                log.log(Level.SEVERE, "Connection to link port established, resetting remote host");
-                try {
-                    tunnel.resetHost();
-                } catch (IOException e) {
-                    log.log(Level.SEVERE, "Failed to reset remote host", e);
-                }
-            }
-        });
+        link.setOnConnected(new Reset(tunnel));
 
-        new XBeeLinkThread("remote->link", tunnel.getInput(), link.getOutput()).start();
-        new XBeeLinkThread("list->remote", link.getInput(), tunnel.getOutput()).start();
+        XBeeLinkThread remote2link = new XBeeLinkThread("remote->link", tunnel.getInput(), link.getOutput());
+        XBeeLinkThread link2remote = new XBeeLinkThread("link->remote", link.getInput(), tunnel.getOutput());
+
+        remote2link.setOther(link2remote);
+        link2remote.setOther(remote2link);
+
+        remote2link.start();
+        link2remote.start();
+
+        remote2link.join();
+        link2remote.join();
+
+        tunnel.close();
+        link.close();
     }
 
+    private static class Reset implements Runnable {
+        private final SerialConnection tunnel;
+
+        public Reset(SerialConnection tunnel) {
+            this.tunnel = tunnel;
+        }
+
+        @Override
+        public void run() {
+            log.log(Level.SEVERE, "Connection to link port established, resetting remote host");
+            try {
+                tunnel.resetHost();
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to reset remote host", e);
+            }
+        }
+    }
 }
