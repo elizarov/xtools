@@ -40,7 +40,6 @@ public class XBeeConnection {
 
     public static XBeeConnection open(SerialConnection serial) throws IOException {
         XBeeConnection conn = new XBeeConnection(serial);
-        conn.start();
         try {
             conn.configureConnection();
         } catch (IOException e) {
@@ -195,14 +194,12 @@ public class XBeeConnection {
         reader = new ReaderThread("XBeeReader-" + serial);
     }
 
-    private void start() {
-        reader.start();
-    }
-
     private void configureConnection() throws IOException {
         // enable inbound flow control to make sure we can receive all answers (signal RTS)
         serial.setHardwareFlowControl(SerialConnection.FLOW_CONTROL_IN);
         serial.drainInput();
+        // now start reader thread to parse input
+        reader.start();
         // configure API MODE
         log.fine("Configuring API mode " + AP_MODE);
         if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
