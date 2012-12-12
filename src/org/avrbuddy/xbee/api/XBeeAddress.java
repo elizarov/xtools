@@ -7,7 +7,7 @@ import java.util.Arrays;
 /**
  * @author Roman Elizarov
  */
-public class XBeeAddress {
+public class XBeeAddress implements Comparable<XBeeAddress> {
     public static final int ADDRESS_LENGTH = 10;
 
     public static final String BROADCAST_STRING = "*";
@@ -119,5 +119,15 @@ public class XBeeAddress {
         for (int i = 0; i < 8; i++)
             result = 31 * result + address[i];
         return result;
+    }
+
+    @Override
+    public int compareTo(XBeeAddress o) {
+        for (int i = 0; i < 8; i++) {
+            int j = (address[i] & 0xff) - (o.address[i] & 0xff);
+            if (j != 0)
+                return j;
+        }
+        return 0;
     }
 }

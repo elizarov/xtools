@@ -18,6 +18,7 @@ public class CommandProcessor {
 
     public static final String COMMENT_PREFIX = "#";
 
+    public static final String CMD_LIST = "LIST";
     public static final String CMD_DISCOVER = "DISCOVER";
     public static final String CMD_SEND = "SEND";
     public static final String CMD_DEST = "DEST";
@@ -63,12 +64,19 @@ public class CommandProcessor {
         }
         String cmd = s[0];
         String args = s.length > 1 ? s[1] : null;
+        if (cmd.equalsIgnoreCase(CMD_LIST)) {
+            if (destination != null)
+                throw new InvalidCommandException(CMD_LIST + ": destination is not supported");
+            discovery.list();
+            return CMD_LIST + ": OK";
+        }
         if (cmd.equalsIgnoreCase(CMD_DISCOVER)) {
             if (args != null)
                 throw new InvalidCommandException(CMD_DISCOVER + ": unexpected argument");
             if (destination == null)
                 destination = discovery.getOrDiscoverLocalNode().getAddress();
-            return CMD_DISCOVER + ": " + destination;
+            XBeeNode node = discovery.getNodeByAddress(destination);
+            return CMD_DISCOVER + ": " + (node == null ? destination.toString() : node.toString());
         }
         if (cmd.equalsIgnoreCase(CMD_SEND)) {
             if (destination == null)
@@ -137,8 +145,9 @@ public class CommandProcessor {
 
     public static void helpCommands() {
         System.err.printf("Available commands:%n");
+        System.err.printf("           '%s'                 -- list discovered nodes%n", CMD_LIST);
         System.err.printf("  [<node>] '%s'             -- discover node (local by default)%n", CMD_DISCOVER);
-        System.err.printf("  [<node>] '%s' <text>          -- send text to node (node is broadcast by default)%n", CMD_SEND);
+        System.err.printf("  [<node>] '%s' <text>          -- send text to node (broadcast by default)%n", CMD_SEND);
         System.err.printf("  [<node>] '%s' [<target-node>] -- change destination node with DH,DL (nodes are local by default)%n", CMD_DEST);
         System.err.printf("  [<node>] '%s'                -- reset node with D3 (node is local by default)%n", CMD_RESET);
         System.err.printf("  [<node>] <AT> <args>            -- send any AT command (node is local by default)%n");

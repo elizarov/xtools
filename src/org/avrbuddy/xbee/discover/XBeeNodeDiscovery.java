@@ -6,10 +6,7 @@ import org.avrbuddy.xbee.api.*;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 /**
@@ -78,6 +75,20 @@ public class XBeeNodeDiscovery {
             node = getByNodeId(id);
         }
         return node;
+    }
+
+    public synchronized XBeeNode getNodeByAddress(XBeeAddress address) {
+        return nodeByAddress.get(address);
+    }
+
+    public void list() {
+        ArrayList<XBeeNode> nodes;
+        synchronized (this) {
+            nodes = new ArrayList<XBeeNode>(nodeById.values());
+        }
+        Collections.sort(nodes);
+        for (XBeeNode node : nodes)
+            System.out.println(node);
     }
 
     // -------------- PRIVATE HELPER METHODS --------------

@@ -5,7 +5,7 @@ import org.avrbuddy.xbee.api.XBeeAddress;
 /**
  * @author Roman Elizarov
  */
-public class XBeeNode {
+public class XBeeNode implements Comparable<XBeeNode> {
     private XBeeAddress address;
     private String id;
     private boolean localNode;
@@ -31,5 +31,20 @@ public class XBeeNode {
     @Override
     public String toString() {
         return address + " " + id + (localNode ? " local" : "");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return this == o || o instanceof XBeeNode && address.equals(((XBeeNode) o).address);
+    }
+
+    @Override
+    public int hashCode() {
+        return address.hashCode();
+    }
+
+    @Override
+    public int compareTo(XBeeNode o) {
+        return address.compareTo(o.address);
     }
 }
