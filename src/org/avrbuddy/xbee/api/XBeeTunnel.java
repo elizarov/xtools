@@ -13,18 +13,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Roman Elizarov
  */
 class XBeeTunnel extends SerialConnection {
-    private static final int IN_BUFFER_SIZE = 65536;
-    private static final int OUT_PACKET_SIZE = 64;
+    private static final int IN_BUFFER_SIZE = 1024;
 
     private final XBeeConnection conn;
     private final XBeeAddress destination;
-    private final Input in = new Input();
-    private final Output out = new Output();
+    private final Input in;
+    private final Output out;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public XBeeTunnel(XBeeConnection conn, XBeeAddress destination) {
+    public XBeeTunnel(XBeeConnection conn, XBeeAddress destination, int maxPayloadSize) {
         this.conn = conn;
         this.destination = destination;
+        in = new Input();
+        out = new Output(maxPayloadSize);
         conn.addListener(XBeeRxFrame.class, in);
     }
 
@@ -162,13 +163,17 @@ class XBeeTunnel extends SerialConnection {
     }
 
     private class Output extends OutputStream {
-        private final byte[] buffer = new byte[OUT_PACKET_SIZE];
+        private final byte[] buffer;
         private int size;
         private long timeout;
 
+        public Output(int maxPayloadSize) {
+            buffer = new byte[maxPayloadSize];
+        }
+
         @Override
         public synchronized void write(int b) throws IOException {
-            if (size >= OUT_PACKET_SIZE)
+            if (size >= buffer.length)
                 flush();
             buffer[size++] = (byte) b;
         }
@@ -181,9 +186,8 @@ class XBeeTunnel extends SerialConnection {
         @Override
         public synchronized void flush() throws IOException {
             if (size > 0) {
-                conn.sendFramesWithId(XBeeTxFrame.newBuilder(destination).setData(Arrays.copyOf(buffer, size)));
+                conn.sendFrames(XBeeTxFrame.newBuilder(destination).setData(Arrays.copyOf(buffer, size)).build());
                 size = 0;
-                // todo: wait for ACK or timeout
             }
         }
 

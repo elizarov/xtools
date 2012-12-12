@@ -150,8 +150,17 @@ public class XBeeConnection {
 
     // -------------- HIGH-LEVER PUBLIC OPERATION --------------
 
-    public SerialConnection openTunnel(XBeeAddress destination) {
-        return new XBeeTunnel(this, destination);
+    public SerialConnection openTunnel(XBeeAddress destination) throws IOException {
+        log.fine("Querying max payload size");
+        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+                XBeeAtFrame.newBuilder().setAtCommand("NP")));
+        if (getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
+            throw new IOException("Cannot determine max payload size for XBee");
+        byte[] data = response[0].getData();
+        if (data.length != 2)
+            throw new IOException("Unrecognized response for max payload size request");
+        int maxPayloadSize = ((data[0] & 0xff) << 8) + (data[1] & 0xff);
+        return new XBeeTunnel(this, destination, maxPayloadSize);
     }
 
     public XBeeFrameWithId[] changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
