@@ -4,10 +4,7 @@ import org.avrbuddy.avr.AvrProgrammer;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.serial.SerialConnection;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InterruptedIOException;
+import java.io.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -168,10 +165,15 @@ public class XBeeConnection {
                         .setData(target == null ? new byte[0] : target.getLowAddressBytes()));
     }
 
+
     public XBeeFrameWithId[] resetRemoteHost(XBeeAddress destination) throws IOException {
-        return sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
-                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}),
-                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
+        // do the actual reset (D3 -> output, low)
+        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4})));
+        // restore config (D3 -> disable).
+        // don't wait for the second message, because reset was already initiated by the first one
+        sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
+        return response;
     }
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
@@ -190,12 +192,7 @@ public class XBeeConnection {
         this.serial = serial;
         in = new DataInputStream(new UnescapeStream(serial.getInput()));
         out = new DataOutputStream(new EscapeStream(serial.getOutput()));
-        reader = new Thread("XBeeReader-" + serial) {
-            @Override
-            public void run() {
-                runReader();
-            }
-        };
+        reader = new ReaderThread("XBeeReader-" + serial);
     }
 
     private void start() {
@@ -205,6 +202,7 @@ public class XBeeConnection {
     private void configureConnection() throws IOException {
         // enable inbound flow control to make sure we can receive all answers (signal RTS)
         serial.setHardwareFlowControl(SerialConnection.FLOW_CONTROL_IN);
+        serial.drainInput();
         // configure API MODE
         log.fine("Configuring API mode " + AP_MODE);
         if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
@@ -223,7 +221,7 @@ public class XBeeConnection {
     private XBeeFrame nextFrame() throws IOException {
         while (true) {
             int skipped = 0;
-            while (serial.getInput().read() != XBeeUtil.FRAME_START)
+            while (readByteOrEOF() != XBeeUtil.FRAME_START)
                 skipped++; // skip bytes
             if (skipped != 0)
                 log.log(Level.WARNING, "Skipped " + skipped + " bytes before start of frame");
@@ -239,6 +237,13 @@ public class XBeeConnection {
                 log.log(Level.WARNING, e.getMessage());
             }
         }
+    }
+
+    private byte readByteOrEOF() throws IOException {
+        int b = serial.getInput().read();
+        if (b < 0)
+            throw new EOFException("Port is closed");
+        return (byte) b;
     }
 
     private byte nextFrameId() {
@@ -260,21 +265,6 @@ public class XBeeConnection {
         out.flush();
     }
 
-    private void runReader() {
-        try {
-            while (!Thread.interrupted()) {
-                XBeeFrame frame = nextFrame();
-                log.fine("<- " + frame);
-                dispatch(frame);
-            }
-        } catch (InterruptedIOException e) {
-            // ignored, exit
-        } catch (IOException e) {
-            log.log(Level.SEVERE, "IO Exception", e);
-        }
-        close();
-    }
-
     @SuppressWarnings({"unchecked"})
     private void dispatch(XBeeFrame frame) {
         Object[] listeners = listenerList.getListeners();
@@ -282,6 +272,30 @@ public class XBeeConnection {
             Class<?> frameClass = (Class<Object>) listeners[i];
             if (frameClass.isInstance(frame))
                 ((XBeeFrameListener) listeners[i + 1]).frameReceived(frame);
+        }
+    }
+
+    private class ReaderThread extends Thread {
+        ReaderThread(String name) {
+            super(name);
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (!closed.get()) {
+                    XBeeFrame frame = nextFrame();
+                    log.fine("<- " + frame);
+                    dispatch(frame);
+                }
+            } catch (EOFException e) {
+                // ignored, exit
+            } catch (InterruptedIOException e) {
+                // ignored, exit
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "IO Exception", e);
+            }
+            close();
         }
     }
 }
