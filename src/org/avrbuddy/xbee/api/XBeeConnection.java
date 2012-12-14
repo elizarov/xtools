@@ -21,15 +21,6 @@ public class XBeeConnection {
 
     public static final byte STATUS_TIMEOUT = (byte) 0xff;
 
-    private static final String AP_COMMAND = "AP";
-    private static final byte AP_MODE = 2; // use escaping
-
-    private static final String RTS_COMMAND = "D6";
-    private static final byte RTS_ON = 1;
-
-    private static final String CTS_COMMAND = "D7";
-    private static final byte CTS_ON = 1;
-
     private final SerialConnection serial;
     private final DataInputStream in;
     private final DataOutputStream out;
@@ -37,6 +28,8 @@ public class XBeeConnection {
     private final XBeeFrameListenerList listenerList = new XBeeFrameListenerList();
     private final State state = new State();
     private byte lastFrameId;
+
+    private int maxPayloadSize;
 
     // -------------- PUBLIC FACTORY --------------
 
@@ -153,16 +146,7 @@ public class XBeeConnection {
     // -------------- HIGH-LEVER PUBLIC OPERATION --------------
 
     public SerialConnection openTunnel(XBeeAddress destination) throws IOException {
-        log.fine("Querying max payload size");
-        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("NP")));
-        if (getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
-            throw new IOException("Cannot determine max payload size for XBee");
-        byte[] data = response[0].getData();
-        if (data.length != 2)
-            throw new IOException("Unrecognized response for max payload size request");
-        int maxPayloadSize = ((data[0] & 0xff) << 8) + (data[1] & 0xff);
-        return new XBeeTunnel(this, destination, maxPayloadSize);
+        return new XBeeTunnel(this, destination, getMaxPayloadSize());
     }
 
     public XBeeFrameWithId[] changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
@@ -212,15 +196,15 @@ public class XBeeConnection {
         // now start reader thread to parse input
         reader.start();
         // configure API MODE
-        log.fine("Configuring API mode " + AP_MODE);
+        log.fine("Configuring API mode " + (byte) 2);
         if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand(AP_COMMAND).setData(AP_MODE)))))
+                XBeeAtFrame.newBuilder().setAtCommand("AP").setData((byte) 2)))))
             throw new IOException("No valid XBee device detected. Check that XBee is configured with API firmware and baud rate");
         // enable hardware flow control - RTS & CTS
         log.fine("Configuring RTS and CTS flow control");
         if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand(RTS_COMMAND).setData(RTS_ON),
-                XBeeAtFrame.newBuilder().setAtCommand(CTS_COMMAND).setData(CTS_ON)))))
+                XBeeAtFrame.newBuilder().setAtCommand("D6").setData((byte) 1),
+                XBeeAtFrame.newBuilder().setAtCommand("D7").setData((byte) 1)))))
             throw new IOException("Failed to enable RTS and CTS flow control on XBee");
         // enable outbound flow control
         serial.setHardwareFlowControl(SerialConnection.FLOW_CONTROL_IN | SerialConnection.FLOW_CONTROL_OUT);
@@ -271,6 +255,20 @@ public class XBeeConnection {
         serial.getOutput().write(data[0]);
         out.write(data, 1, data.length - 1);
         out.flush();
+    }
+
+    private int getMaxPayloadSize() throws IOException {
+        if (maxPayloadSize != 0)
+            return maxPayloadSize;
+        log.fine("Querying max payload size");
+        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+                XBeeAtFrame.newBuilder().setAtCommand("NP")));
+        if (getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
+            throw new IOException("Cannot determine max payload size for XBee");
+        byte[] data = response[0].getData();
+        if (data.length != 2)
+            throw new IOException("Unrecognized response for max payload size request");
+        return maxPayloadSize = ((data[0] & 0xff) << 8) + (data[1] & 0xff);
     }
 
     @SuppressWarnings({"unchecked"})
