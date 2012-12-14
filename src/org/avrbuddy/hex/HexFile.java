@@ -1,4 +1,4 @@
-package org.avrbuddy.util;
+package org.avrbuddy.hex;
 
 import java.io.*;
 import java.util.ArrayList;

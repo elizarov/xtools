@@ -1,7 +1,7 @@
 package org.avrbuddy.xbee.cmd;
 
 import org.avrbuddy.log.Log;
-import org.avrbuddy.util.HexUtil;
+import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.xbee.api.*;
 import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeDiscovery;

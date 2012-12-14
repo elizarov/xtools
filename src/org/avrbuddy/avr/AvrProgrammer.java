@@ -1,7 +1,7 @@
 package org.avrbuddy.avr;
 
 import org.avrbuddy.serial.SerialConnection;
-import org.avrbuddy.util.HexUtil;
+import org.avrbuddy.hex.HexUtil;
 
 import java.io.IOException;
 import java.io.InputStream;

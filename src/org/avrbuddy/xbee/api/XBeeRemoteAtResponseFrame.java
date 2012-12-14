@@ -1,6 +1,6 @@
 package org.avrbuddy.xbee.api;
 
-import org.avrbuddy.util.HexUtil;
+import org.avrbuddy.hex.HexUtil;
 
 import java.util.Arrays;
 

@@ -1,7 +1,7 @@
 package org.avrbuddy.xbee.discover;
 
 import org.avrbuddy.log.Log;
-import org.avrbuddy.util.HexUtil;
+import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.xbee.api.*;
 
 import java.io.IOException;

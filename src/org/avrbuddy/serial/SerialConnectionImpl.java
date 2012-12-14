@@ -1,25 +1,28 @@
 package org.avrbuddy.serial;
 
 import gnu.io.*;
-import org.avrbuddy.log.Log;
+import org.avrbuddy.util.State;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.TooManyListenersException;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
 class SerialConnectionImpl extends SerialConnection implements SerialPortEventListener {
-    private static final Logger log = Log.getLogger(SerialConnectionImpl.class);
+    private static final int CLOSED = 1;
+    private static final int DATA_AVAILABLE = 2;
+    private static final int OUTPUT_ENABLED = 4;
+    private static final int NOTIFY_CONNECTED = 8;
 
     private final String port;
     private final SerialPort serialPort;
-    private final SerialInput in;
-    private final SerialOutput out;
+    private final Input in;
+    private final Output out;
+    private final State state = new State();
+
+    private volatile Runnable onConnected;
 
     SerialConnectionImpl(String port, int baud) throws IOException {
         this.port = port;
@@ -41,8 +44,8 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
             serialPort.close();
             throw new IOException("Port " + port + " cannot be configured for " + baud + " 8N1");
         }
-        in = new SerialInput(serialPort.getInputStream());
-        out = new SerialOutput(serialPort.getOutputStream());
+        in = new Input(serialPort.getInputStream());
+        out = new Output(serialPort.getOutputStream());
         serialPort.notifyOnDataAvailable(true);
         serialPort.notifyOnDSR(true);
         serialPort.notifyOnCTS(true);
@@ -58,11 +61,11 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     public void serialEvent(SerialPortEvent event) {
         switch (event.getEventType()) {
             case SerialPortEvent.DATA_AVAILABLE:
-                in.dataAvailable();
+                state.set(DATA_AVAILABLE);
                 break;
             case SerialPortEvent.DSR:
                 if (!event.getOldValue() && event.getNewValue())
-                    in.connected();
+                    state.set(NOTIFY_CONNECTED);
                 updateOutputEnabled();
                 break;
             case SerialPortEvent.CTS:
@@ -72,7 +75,10 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     }
 
     private void updateOutputEnabled() {
-        out.setEnabled(serialPort.isDSR() || serialPort.isCTS());
+        if (serialPort.isDSR() || serialPort.isCTS())
+            state.set(OUTPUT_ENABLED);
+        else
+            state.clear(OUTPUT_ENABLED);
     }
 
     @Override
@@ -87,17 +93,11 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
 
     @Override
     public void close() {
+        if (!state.set(CLOSED))
+            return;
+        in.closeImpl();
+        out.closeImpl();
         serialPort.close();
-        try {
-            in.close();
-        } catch (IOException e) {
-            log.log(Level.WARNING, "Failed to close input", e);
-        }
-        try {
-            out.close();
-        } catch (IOException e) {
-            log.log(Level.WARNING, "Failed to close output", e);
-        }
     }
 
     @Override
@@ -134,11 +134,118 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
 
     @Override
     public void setOnConnected(Runnable action) {
-        in.setOnConnected(action);
+        onConnected = action;
+    }
+
+    void checkNotifyConnected() {
+        if (state.clear(NOTIFY_CONNECTED)) {
+            Runnable onConnected = this.onConnected;
+            if (onConnected != null)
+                onConnected.run();
+        }
     }
 
     @Override
     public String toString() {
         return port;
+    }
+
+    class Input extends InputStream {
+        private final InputStream in;
+        private volatile long timeout;
+
+        public Input(InputStream in) throws IOException {
+            this.in = in;
+        }
+
+        @Override
+        public int available() throws IOException {
+            return in.available();
+        }
+
+        @Override
+        public int read() throws IOException {
+            while (true) {
+                if (state.is(CLOSED))
+                    throw new EOFException("Port is closed");
+                checkNotifyConnected();
+                if (in.available() != 0)
+                    return in.read();
+                state.await(DATA_AVAILABLE | CLOSED, timeout);
+                state.clear(DATA_AVAILABLE);
+            }
+        }
+
+        @Override
+        public void close() {
+            SerialConnectionImpl.this.close();
+        }
+
+        void closeImpl() {
+            try {
+                in.close();
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to close input", e);
+            }
+        }
+
+        public void drain() throws IOException {
+            while (in.available() > 0)
+                in.read();
+        }
+
+        public void setTimeout(long timeout) {
+            this.timeout = timeout;
+        }
+    }
+
+    class Output extends BufferedOutputStream {
+        private volatile long timeout;
+
+        public Output(OutputStream out) {
+            super(out);
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            if (waitEnabled())
+                super.write(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (waitEnabled())
+                super.write(b, off, len);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            if (waitEnabled())
+                super.flush();
+        }
+
+        private boolean waitEnabled() throws IOException {
+            state.await(OUTPUT_ENABLED | CLOSED, timeout);
+            if (state.is(CLOSED))
+                throw new EOFException("Port is closed");
+            return state.is(OUTPUT_ENABLED);
+        }
+
+        public void setTimeout(long timeout) {
+            this.timeout = timeout;
+        }
+
+        @Override
+        public void close() {
+            SerialConnectionImpl.this.close();
+        }
+
+        void closeImpl() {
+            try {
+                out.close();
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to close output", e);
+            }
+        }
     }
 }

@@ -1,4 +1,4 @@
-package org.avrbuddy.util;
+package org.avrbuddy.hex;
 
 /**
  * @author Roman Elizarov
