@@ -3,9 +3,9 @@ package org.avrbuddy.xbee.api;
 import org.avrbuddy.avr.AvrProgrammer;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.serial.SerialConnection;
+import org.avrbuddy.util.State;
 
 import java.io.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -14,6 +14,8 @@ import java.util.logging.Logger;
  */
 public class XBeeConnection {
     private static final Logger log = Log.getLogger(XBeeConnection.class);
+
+    private static final int CLOSED = 1;
 
     public static final long DEFAULT_TIMEOUT = 3000;
 
@@ -33,7 +35,7 @@ public class XBeeConnection {
     private final DataOutputStream out;
     private final Thread reader;
     private final XBeeFrameListenerList listenerList = new XBeeFrameListenerList();
-    private final AtomicBoolean closed = new AtomicBoolean();
+    private final State state = new State();
     private byte lastFrameId;
 
     // -------------- PUBLIC FACTORY --------------
@@ -52,7 +54,7 @@ public class XBeeConnection {
     // -------------- PUBLIC LOW-LEVER OPERATIONS --------------
 
     public void close() {
-        if (!closed.compareAndSet(false, true))
+        if (!state.set(CLOSED))
             return;
         serial.close();
         Object[] listeners = listenerList.getListeners();
@@ -61,7 +63,7 @@ public class XBeeConnection {
     }
 
     public <F> void addListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
-        if (closed.get())
+        if (state.is(CLOSED))
             return;
         listenerList.addListener(frameClass, listener);
     }
@@ -289,7 +291,7 @@ public class XBeeConnection {
         @Override
         public void run() {
             try {
-                while (!closed.get()) {
+                while (!state.is(CLOSED)) {
                     XBeeFrame frame = nextFrame();
                     log.fine("<- " + frame);
                     dispatch(frame);

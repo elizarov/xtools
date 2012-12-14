@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  * @author Roman Elizarov
  */
 public abstract class SerialConnection implements Closeable {
-    private static final Logger log = Log.getLogger(SerialConnection.class);
+    protected static final Logger log = Log.getLogger(SerialConnection.class);
 
     public static final int FLOW_CONTROL_IN = 1;
     public static final int FLOW_CONTROL_OUT = 2;

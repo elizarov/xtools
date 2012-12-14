@@ -1,13 +1,13 @@
 package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.serial.SerialConnection;
+import org.avrbuddy.util.State;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Roman Elizarov
@@ -15,11 +15,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 class XBeeTunnel extends SerialConnection {
     private static final int IN_BUFFER_SIZE = 1024;
 
+    private static final int CLOSED = 1;
+    private static final int DATA_AVAILABLE = 2;
+
     private final XBeeConnection conn;
     private final XBeeAddress destination;
     private final Input in;
     private final Output out;
-    private final AtomicBoolean closed = new AtomicBoolean();
+    private final State state = new State();
 
     public XBeeTunnel(XBeeConnection conn, XBeeAddress destination, int maxPayloadSize) {
         this.conn = conn;
@@ -41,15 +44,9 @@ class XBeeTunnel extends SerialConnection {
 
     @Override
     public void close() {
-        closeTunnel();
-    }
-
-    private void closeTunnel() {
-        if (!closed.compareAndSet(false, true))
+        if (!state.set(CLOSED))
             return;
         conn.removeListener(XBeeRxFrame.class, in);
-        in.close();
-        out.close();
     }
 
     @Override
@@ -76,59 +73,55 @@ class XBeeTunnel extends SerialConnection {
         private final byte[] buffer = new byte[IN_BUFFER_SIZE];
         private int readIndex = 0;
         private int writeIndex = 0;
-        private int skipped = 0;
-        private long timeout;
-        private boolean closed;
+        private volatile long timeout;
 
         @Override
-        public synchronized int available() throws IOException {
-            return closed ? 0 : (writeIndex - readIndex + IN_BUFFER_SIZE) % IN_BUFFER_SIZE;
+        public int available() {
+            synchronized (buffer) {
+                return state.is(CLOSED) ? 0 : (writeIndex - readIndex + IN_BUFFER_SIZE) % IN_BUFFER_SIZE;
+            }
         }
 
         @Override
-        public synchronized int read() throws IOException {
-            while (!closed && readIndex == writeIndex)
-                try {
-                    if (timeout == 0)
-                        wait();
-                    else {
-                        wait(timeout);
-                        break;
+        public int read() throws IOException {
+            while (true) {
+                if (state.is(CLOSED))
+                    throw new EOFException("Port is closed");
+                state.await(DATA_AVAILABLE | CLOSED, timeout);
+                synchronized (buffer) {
+                    if (readIndex == writeIndex) {
+                        state.clear(DATA_AVAILABLE);
+                        continue;
                     }
-                } catch (InterruptedException e) {
-                    throw ((IOException) new InterruptedIOException().initCause(e));
+                    byte b = buffer[readIndex];
+                    readIndex = (readIndex + 1) % IN_BUFFER_SIZE;
+                    return b & 0xff;
                 }
-            if (closed || readIndex == writeIndex)
-                return -1;
-            byte b = buffer[readIndex];
-            readIndex = (readIndex + 1) % IN_BUFFER_SIZE;
-            return b & 0xff;
+            }
         }
 
         @Override
-        public synchronized int read(byte[] b, int off, int len) throws IOException {
+        public int read(byte[] b, int off, int len) throws IOException {
             return super.read(b, off, len);
         }
 
-        private synchronized void write(byte[] data) {
-            for (byte b : data) {
-                write(b);
+        void write(byte[] data) {
+            int skipped = 0;
+            synchronized (buffer) {
+                for (int i = 0; i < data.length; i++) {
+                    byte b = data[i];
+                    int w2 = (writeIndex + 1) % IN_BUFFER_SIZE;
+                    if (w2 == readIndex) {
+                        skipped = data.length - i;
+                        break;
+                    }
+                    buffer[writeIndex] = b;
+                    writeIndex = w2;
+                }
             }
-            notifyAll();
-            if (skipped > 0) {
-                System.err.println("Skipped " + skipped + " bytes from " + destination + " due to input buffer overflow.");
-                skipped = 0;
-            }
-        }
-
-        private void write(byte b) {
-            int w2 = (writeIndex + 1) % IN_BUFFER_SIZE;
-            if (w2 == readIndex) {
-                skipped++;
-                return;
-            }
-            buffer[writeIndex] = b;
-            writeIndex = w2;
+            if (skipped > 0)
+                log.warning("Skipped " + skipped + " bytes from " + destination + " due to input buffer overflow.");
+            state.set(DATA_AVAILABLE);
         }
 
         public void frameReceived(XBeeRxFrame frame) {
@@ -138,26 +131,22 @@ class XBeeTunnel extends SerialConnection {
 
         @Override
         public void connectionClosed() {
-            closeTunnel();
+            close();
         }
 
         @Override
         public void close() {
-            synchronized (this) {
-                if (closed)
-                    return;
-                closed = true;
-                notifyAll();
+            XBeeTunnel.this.close();
+        }
+
+        public void drain() {
+            synchronized (buffer) {
+                readIndex = 0;
+                writeIndex = 0;
             }
-            closeTunnel();
         }
 
-        public synchronized void drain() {
-            readIndex = 0;
-            writeIndex = 0;
-        }
-
-        public synchronized void setTimeout(long timeout) {
+        public void setTimeout(long timeout) {
             this.timeout = timeout;
         }
     }
@@ -165,35 +154,41 @@ class XBeeTunnel extends SerialConnection {
     private class Output extends OutputStream {
         private final byte[] buffer;
         private int size;
-        private long timeout;
+        private volatile long timeout;
 
         public Output(int maxPayloadSize) {
             buffer = new byte[maxPayloadSize];
         }
 
         @Override
-        public synchronized void write(int b) throws IOException {
-            if (size >= buffer.length)
-                flush();
-            buffer[size++] = (byte) b;
+        public void write(int b) throws IOException {
+            synchronized (buffer) {
+                if (size >= buffer.length)
+                    flush();
+                buffer[size++] = (byte) b;
+            }
         }
 
         @Override
-        public synchronized void write(byte[] b, int off, int len) throws IOException {
-            super.write(b, off, len);
+        public void write(byte[] b, int off, int len) throws IOException {
+            synchronized (buffer) {
+                super.write(b, off, len);
+            }
         }
 
         @Override
-        public synchronized void flush() throws IOException {
-            if (size > 0) {
-                conn.sendFrames(XBeeTxFrame.newBuilder(destination).setData(Arrays.copyOf(buffer, size)).build());
-                size = 0;
+        public void flush() throws IOException {
+            synchronized (buffer) {
+                if (size > 0) {
+                    conn.sendFrames(XBeeTxFrame.newBuilder(destination).setData(Arrays.copyOf(buffer, size)).build());
+                    size = 0;
+                }
             }
         }
 
         @Override
         public void close() {
-            closeTunnel();
+            XBeeTunnel.this.close();
         }
 
         public void setTimeout(long timeout) {
