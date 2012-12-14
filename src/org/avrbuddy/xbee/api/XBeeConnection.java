@@ -124,10 +124,11 @@ public class XBeeConnection {
     }
 
     public XBeeFrameWithId[] sendFramesWithIdSeriallyAndWait(long timeout, XBeeFrameWithId.Builder... builders) throws IOException {
-        XBeeFrameWithId[] responses = new XBeeFrameWithId[0];
-        for (XBeeFrameWithId.Builder builder : builders) {
-            responses = waitResponses(timeout, sendFramesWithId(builder));
-            if (getStatus(responses) != XBeeAtResponseFrame.STATUS_OK)
+        XBeeFrameWithId[] responses = new XBeeFrameWithId[builders.length];
+        for (int i = 0; i < builders.length; i++) {
+            XBeeFrameWithId[] res = waitResponses(timeout, sendFramesWithId(builders[i]));
+            responses[i] = res[0];
+            if (getStatus(res) != XBeeAtResponseFrame.STATUS_OK)
                 break;
         }
         return responses;
