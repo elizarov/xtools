@@ -5,6 +5,7 @@ import org.avrbuddy.log.Log;
 import org.avrbuddy.xbee.api.*;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,15 +113,31 @@ public class XBeeNodeDiscovery {
         }
         NodeDiscoveryListener listener = new NodeDiscoveryListener(visitor);
         conn.addListener(XBeeNodeDescriptionContainer.class, listener);
-        responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT,
-                conn.sendFramesWithId(
+        try {
+            long tillTime = System.currentTimeMillis() + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT;
+            // wait for first response
+            responses = conn.waitResponses(
+                XBeeConnection.DEFAULT_TIMEOUT + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT, conn.sendFramesWithId(
                         XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
-                            .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
-        conn.removeListener(XBeeNodeDescriptionContainer.class, listener);
-        status = conn.getStatus(responses);
-        if (status != XBeeAtResponseFrame.STATUS_OK) {
-            log.log(Level.SEVERE, "Failed to discover remote " + (id == null ? "nodes" : "node " + id) + ": " +
-                    conn.fmtStatus(status));
+                                .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
+            status = conn.getStatus(responses);
+            if (status != XBeeAtResponseFrame.STATUS_OK) {
+                log.log(Level.SEVERE, "Failed to discover remote " + (id == null ? "nodes" : "node @" + id) + ": " +
+                        conn.fmtStatus(status));
+                return status;
+            }
+            // if all nodes are discovered, wait for the end of timeout
+            if (id == null) {
+                long waitTime = tillTime - System.currentTimeMillis();
+                if (waitTime > 0)
+                    try {
+                        Thread.sleep(waitTime);
+                    } catch (InterruptedException e) {
+                        throw ((InterruptedIOException) new InterruptedIOException().initCause(e));
+                    }
+            }
+        } finally {
+            conn.removeListener(XBeeNodeDescriptionContainer.class, listener);
         }
         return status;
     }

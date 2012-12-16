@@ -56,7 +56,7 @@ public class XBeeLink {
         XBeeNodeDiscovery discovery = new XBeeNodeDiscovery(conn);
         XBeeNode linkNode = discovery.getOrDiscoverByNodeId(linkNodeId, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
         if (linkNode == null) {
-            log.log(Level.SEVERE, "Failed to discover link node " + linkNodeId);
+            log.log(Level.SEVERE, "Failed to discover link node @" + linkNodeId);
             return;
         }
         XBeeNode localNode = discovery.getOrDiscoverLocalNode();
