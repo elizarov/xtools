@@ -156,7 +156,8 @@ public class CommandProcessor {
             String id = s.substring(NODE_ID_PREFIX.length());
             XBeeNode node = discovery.getOrDiscoverByNodeId(id, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
             if (node == null)
-                throw new IllegalArgumentException("Failed to discover remote node " + id);
+                throw new IllegalArgumentException("Failed to discover remote node " + id +
+                        " after " + XBeeNodeDiscovery.DISCOVER_ATTEMPTS + " attempts");
             return node.getAddress();
         } else if (s.startsWith(XBeeAddress.S_PREFIX))
             return XBeeAddress.valueOf(s);
