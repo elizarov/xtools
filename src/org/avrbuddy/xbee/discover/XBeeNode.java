@@ -30,7 +30,7 @@ public class XBeeNode implements Comparable<XBeeNode> {
 
     @Override
     public String toString() {
-        return address + " " + id + (localNode ? " local" : "");
+        return address + " @" + id + (localNode ? " ." : "");
     }
 
     @Override

@@ -1,6 +1,7 @@
 package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.avr.AvrProgrammer;
+import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.serial.SerialConnection;
 import org.avrbuddy.util.State;
@@ -19,7 +20,7 @@ public class XBeeConnection {
 
     public static final long DEFAULT_TIMEOUT = 3000;
 
-    public static final byte STATUS_TIMEOUT = (byte) 0xff;
+    public static final int STATUS_TIMEOUT = 0x100;
 
     private final SerialConnection serial;
     private final DataInputStream in;
@@ -134,14 +135,14 @@ public class XBeeConnection {
         return responses;
     }
 
-    public byte getStatus(XBeeFrameWithId[] responses) {
+    public int getStatus(XBeeFrameWithId[] responses) {
         int status = XBeeAtResponseFrame.STATUS_OK;
         for (XBeeFrameWithId response : responses) {
             if (response == null)
                 return STATUS_TIMEOUT;
             status = Math.max(status, response.getStatus() & 0xff);
         }
-        return (byte) status;
+        return status;
     }
 
     // -------------- HIGH-LEVER PUBLIC OPERATION --------------
@@ -150,25 +151,25 @@ public class XBeeConnection {
         return new XBeeTunnel(this, destination, getMaxPayloadSize());
     }
 
-    public XBeeFrameWithId[] changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
-        return sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+    public int changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
+        return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination)
                         .setAtCommand("DH")
                         .setData(target == null ? new byte[0] : target.getHighAddressBytes()),
                 XBeeAtFrame.newBuilder(destination)
                         .setAtCommand("DL")
-                        .setData(target == null ? new byte[0] : target.getLowAddressBytes()));
+                        .setData(target == null ? new byte[0] : target.getLowAddressBytes())));
     }
 
 
-    public XBeeFrameWithId[] resetRemoteHost(XBeeAddress destination) throws IOException {
+    public int resetRemoteHost(XBeeAddress destination) throws IOException {
         // do the actual reset (D3 -> output, low)
-        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4})));
+        int status = getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}))));
         // restore config (D3 -> disable).
         // don't wait for the second message, because reset was already initiated by the first one
         sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
-        return response;
+        return status;
     }
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
@@ -279,6 +280,29 @@ public class XBeeConnection {
             Class<?> frameClass = (Class<Object>) listeners[i];
             if (frameClass.isInstance(frame))
                 ((XBeeFrameListener) listeners[i + 1]).frameReceived(frame);
+        }
+    }
+
+    public String fmtStatus(XBeeFrameWithId[] responses) {
+        return fmtStatus(getStatus(responses));
+    }
+
+    public String fmtStatus(int status) {
+        switch (status) {
+            case STATUS_TIMEOUT:
+                return "TIMEOUT";
+            case XBeeAtResponseFrame.STATUS_OK:
+                return "OK";
+            case XBeeAtResponseFrame.STATUS_ERROR:
+                return "ERROR";
+            case XBeeAtResponseFrame.STATUS_INVALID_COMMAND:
+                return "INVALID COMMAND";
+            case XBeeAtResponseFrame.STATUS_TX_FAILURE:
+                return "TX FAILURE";
+            case XBeeAtResponseFrame.STATUS_INVALID_PARAMETER:
+                return "INVALID PARAMETER";
+            default:
+                return HexUtil.formatByte((byte) status);
         }
     }
 

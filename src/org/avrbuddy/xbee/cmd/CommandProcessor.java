@@ -5,6 +5,7 @@ import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.xbee.api.*;
 import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeDiscovery;
+import org.avrbuddy.xbee.discover.XBeeNodeVisitor;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -67,39 +68,41 @@ public class CommandProcessor {
         if (cmd.equalsIgnoreCase(CMD_LIST)) {
             if (destination != null)
                 throw new InvalidCommandException(CMD_LIST + ": destination is not supported");
-            discovery.list();
+            discovery.list(new PrintNodes());
             return CMD_LIST + ": OK";
         }
         if (cmd.equalsIgnoreCase(CMD_DISCOVER)) {
             if (args != null)
                 throw new InvalidCommandException(CMD_DISCOVER + ": unexpected argument");
-            if (destination == null)
-                destination = discovery.getOrDiscoverLocalNode().getAddress();
-            XBeeNode node = discovery.getNodeByAddress(destination);
-            return CMD_DISCOVER + ": " + (node == null ? destination.toString() : node.toString());
+            if (destination == null || destination.equals(XBeeAddress.BROADCAST)) {
+                int status = discovery.discoverAllNodes(new PrintNodes());
+                return CMD_DISCOVER + ": " + conn.fmtStatus(status);
+            } else {
+                XBeeNode node = discovery.getNodeByAddress(destination);
+                return CMD_DISCOVER + ": " + (node == null ? "FAILED" : "OK " + node.toString());
+            }
         }
         if (cmd.equalsIgnoreCase(CMD_SEND)) {
             if (destination == null)
                 destination = XBeeAddress.BROADCAST;
             if (args == null)
                 throw new InvalidCommandException(CMD_SEND + ": text is missing");
-            XBeeFrameWithId[] responses =
-                    conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
+            int status = conn.getStatus(conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                             conn.sendFramesWithId(XBeeTxFrame.newBuilder()
                                     .setDestination(destination)
-                                    .setData(HexUtil.parseAscii(args))));
-            return CMD_SEND + ": " + fmtStatus(responses);
+                                    .setData(HexUtil.parseAscii(args)))));
+            return CMD_SEND + ": " + conn.fmtStatus(status);
         }
         if (cmd.equalsIgnoreCase(CMD_DEST)) {
             XBeeAddress target = args == null ?
                     discovery.getOrDiscoverLocalNode().getAddress() :
                     resolveNodeAddress(args);
-            XBeeFrameWithId[] responses = conn.changeRemoteDestination(destination, target);
-            return CMD_DEST + ": " + fmtStatus(responses);
+            int status = conn.changeRemoteDestination(destination, target);
+            return CMD_DEST + ": " + conn.fmtStatus(status);
         }
         if (cmd.equalsIgnoreCase(CMD_RESET)) {
-            XBeeFrameWithId[] responses = conn.resetRemoteHost(destination);
-            return CMD_RESET + ": " + fmtStatus(responses);
+            int status = conn.resetRemoteHost(destination);
+            return CMD_RESET + ": " + conn.fmtStatus(status);
         }
         if (cmd.equalsIgnoreCase(CMD_AVR)) {
             if (destination == null)
@@ -118,39 +121,19 @@ public class CommandProcessor {
                 if (data.length > 0)
                     result = " " + XBeeUtil.formatAtValue(cmd, data);
             }
-            return cmd + ": " + fmtStatus(responses) + result;
+            return cmd + ": " + conn.fmtStatus(responses) + result;
         }
         throw new InvalidCommandException("Command not recognized: " + cmd);
     }
 
-    private String fmtStatus(XBeeFrameWithId[] responses) {
-        byte status = conn.getStatus(responses);
-        switch (status) {
-            case XBeeConnection.STATUS_TIMEOUT:
-                return "TIMEOUT";
-            case XBeeAtResponseFrame.STATUS_OK:
-                return "OK";
-            case XBeeAtResponseFrame.STATUS_ERROR:
-                return "ERROR";
-            case XBeeAtResponseFrame.STATUS_INVALID_COMMAND:
-                return "INVALID COMMAND";
-            case XBeeAtResponseFrame.STATUS_TX_FAILURE:
-                return "TX FAILURE";
-            case XBeeAtResponseFrame.STATUS_INVALID_PARAMETER:
-                return "INVALID PARAMETER";
-            default:
-                return HexUtil.formatByte(status);
-        }
-    }
-
     public static void helpCommands() {
         System.err.printf("Available commands:%n");
-        System.err.printf("           '%s'                 -- list discovered nodes%n", CMD_LIST);
-        System.err.printf("  [<node>] '%s'             -- discover node (local by default)%n", CMD_DISCOVER);
         System.err.printf("  [<node>] '%s' <text>          -- send text to node (broadcast by default)%n", CMD_SEND);
         System.err.printf("  [<node>] '%s' [<target-node>] -- change destination node with DH,DL (nodes are local by default)%n", CMD_DEST);
         System.err.printf("  [<node>] '%s'                -- reset node with D3 (node is local by default)%n", CMD_RESET);
         System.err.printf("  [<node>] <AT> <args>            -- send any AT command (node is local by default)%n");
+        System.err.printf("  [<node>] '%s'             -- discover node (all nodes by default)%n", CMD_DISCOVER);
+        System.err.printf("           '%s'                 -- list discovered nodes%n", CMD_LIST);
         System.err.printf("Where node is one of:%n");
         System.err.printf("  '%s' for local node%n", NODE_LOCAL);
         System.err.printf("  '%s' for broadcast%n", XBeeAddress.BROADCAST_STRING);
@@ -178,5 +161,12 @@ public class CommandProcessor {
         } else if (s.startsWith(XBeeAddress.S_PREFIX))
             return XBeeAddress.valueOf(s);
         return null;
+    }
+
+    private class PrintNodes implements XBeeNodeVisitor {
+        @Override
+        public void visitNode(XBeeNode node) {
+            System.out.println(node);
+        }
     }
 }

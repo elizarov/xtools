@@ -30,7 +30,6 @@ class XBeeConsoleThread extends Thread {
     @Override
     public void run() {
         try {
-            discovery.discoverAllNodes();
             BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
             while (true) {
                 System.out.print("> ");
