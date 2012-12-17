@@ -37,25 +37,37 @@ public class XBeeNodeDiscovery {
 
     public int discoverAllNodes(XBeeNodeVisitor visitor) throws IOException {
         return Math.max(
-                discoverLocalNode(visitor),
+                discoverDestinationNode(null, visitor),
                 discoverRemoteNode(null, visitor, 0));
     }
 
     public XBeeNode getOrDiscoverLocalNode() throws IOException {
-        if (getLocalNode() == null)
-            discoverLocalNode(null);
-        return getLocalNode();
+        XBeeNode node = getLocalNode();
+        if (node != null)
+            return node;
+        return checkStatus(discoverDestinationNode(null, null), getLocalNode());
     }
 
     public XBeeNode getOrDiscoverByNodeId(String id, int attempts) throws IOException {
         if (id == null)
             throw new NullPointerException();
         XBeeNode node = getByNodeId(id);
-        for (int attempt = 0; node == null && attempt < attempts; attempt++) {
-            discoverRemoteNode(id, null, 0);
-            node = getByNodeId(id);
+        if (node != null)
+            return node;
+        int status = -1;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            status = discoverRemoteNode(id, null, 0);
+            if (status == XBeeAtResponseFrame.STATUS_OK)
+                break;
         }
-        return node;
+        return checkStatus(status, getByNodeId(id));
+    }
+
+    public XBeeNode getOrDiscoverNodeByAddress(XBeeAddress address) throws IOException {
+        XBeeNode node = getNodeByAddress(address);
+        if (node != null)
+            return node;
+        return checkStatus(discoverDestinationNode(address, null), getNodeByAddress(address));
     }
 
     public synchronized XBeeNode getNodeByAddress(XBeeAddress address) {
@@ -74,16 +86,18 @@ public class XBeeNodeDiscovery {
 
     // -------------- PRIVATE HELPER METHODS --------------
 
-    private int discoverLocalNode(XBeeNodeVisitor visitor) throws IOException {
-        log.fine("Discover local node information");
-        XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT, conn.sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("SH"),
-                XBeeAtFrame.newBuilder().setAtCommand("SL"),
-                XBeeAtFrame.newBuilder().setAtCommand("MY"),
-                XBeeAtFrame.newBuilder().setAtCommand("NI")));
+    // destination == null to discover local node
+    private int discoverDestinationNode(XBeeAddress destination, XBeeNodeVisitor visitor) throws IOException {
+        String desc = destination == null ? "local" : "remote";
+        log.fine("Discover " + desc + " node information");
+        XBeeFrameWithId[] responses = conn.sendFramesWithIdSeriallyAndWait(XBeeConnection.DEFAULT_TIMEOUT,
+                XBeeAtFrame.newBuilder(destination).setAtCommand("SH"),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("SL"),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("MY"),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("NI"));
         int status = conn.getStatus(responses);
         if (status != XBeeAtResponseFrame.STATUS_OK) {
-            log.log(Level.SEVERE, "Failed to retrieve local node information: " + conn.fmtStatus(status));
+            log.log(Level.SEVERE, "Failed to retrieve " + desc + " information: " + conn.fmtStatus(status));
             return status;
         }
         byte[] localNodeAddressBytes = new byte[10];
@@ -91,10 +105,14 @@ public class XBeeNodeDiscovery {
         System.arraycopy(responses[1].getData(), 0, localNodeAddressBytes, 4, 4);
         System.arraycopy(responses[2].getData(), 0, localNodeAddressBytes, 8, 2);
         String localNodeId = HexUtil.formatAscii(responses[3].getData());
-        localNode = new XBeeNode(XBeeAddress.valueOf(localNodeAddressBytes, 0), localNodeId, true);
-        putNode(localNode);
+        XBeeNode node = new XBeeNode(XBeeAddress.valueOf(localNodeAddressBytes, 0), localNodeId, true);
+        if (destination == null)
+            synchronized (this) {
+                localNode = node;
+            }
+        putNode(node);
         if (visitor != null)
-            visitor.visitNode(localNode);
+            visitor.visitNode(node);
         return status;
     }
 
@@ -121,11 +139,8 @@ public class XBeeNodeDiscovery {
                         XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
                                 .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
             status = conn.getStatus(responses);
-            if (status != XBeeAtResponseFrame.STATUS_OK) {
-                log.log(Level.SEVERE, "Failed to discover remote " + (id == null ? "nodes" : "node @" + id) + ": " +
-                        conn.fmtStatus(status));
+            if (status != XBeeAtResponseFrame.STATUS_OK)
                 return status;
-            }
             // if all nodes are discovered, wait for the end of timeout
             if (id == null) {
                 long waitTime = tillTime - System.currentTimeMillis();
@@ -156,6 +171,14 @@ public class XBeeNodeDiscovery {
         nodeById.put(node.getId(), node);
         nodeByAddress.put(node.getAddress(), node);
         notifyAll();
+    }
+
+    private XBeeNode checkStatus(int status, XBeeNode result) throws IOException {
+        if (status != XBeeAtResponseFrame.STATUS_OK)
+            throw new IOException("Discovery failed: " + conn.fmtStatus(status));
+        if (result == null)
+            throw new IOException("Discovery failed for unknown reason");
+        return result;
     }
 
     private class NodeDiscoveryListener implements XBeeFrameListener<XBeeNodeDescriptionContainer> {

@@ -151,6 +151,7 @@ public class XBeeConnection {
         return new XBeeTunnel(this, destination, getMaxPayloadSize());
     }
 
+    // destination == null to change destination of local node via local AT commands
     public int changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
         return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination)
@@ -162,6 +163,7 @@ public class XBeeConnection {
     }
 
 
+    // destination == null to reset local node via local AT commands
     public int resetRemoteHost(XBeeAddress destination) throws IOException {
         // do the actual reset (D3 -> output, low)
         int status = getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(

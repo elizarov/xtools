@@ -5,6 +5,6 @@ package org.avrbuddy.xbee.cmd;
  */
 public class CommandHelp {
     public static void main(String[] args) {
-        CommandProcessor.helpCommands();
+        CommandParser.helpCommands();
     }
 }

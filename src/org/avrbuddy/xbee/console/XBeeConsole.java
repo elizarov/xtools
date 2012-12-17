@@ -3,6 +3,7 @@ package org.avrbuddy.xbee.console;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.serial.SerialConnection;
 import org.avrbuddy.xbee.api.XBeeConnection;
+import org.avrbuddy.xbee.cmd.CommandContext;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -29,7 +30,7 @@ public class XBeeConsole {
             log.log(Level.SEVERE, "Failed", e);
             return;
         }
-        XBeeConsoleThread console = new XBeeConsoleThread(conn);
+        XBeeConsoleThread console = new XBeeConsoleThread(new CommandContext(conn));
         console.setDaemon(true);
         console.start();
     }

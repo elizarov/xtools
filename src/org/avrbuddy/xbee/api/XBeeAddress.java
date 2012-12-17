@@ -37,7 +37,7 @@ public class XBeeAddress implements Comparable<XBeeAddress> {
              return COORDINATOR;
         if (!s.startsWith(S_PREFIX) || !s.endsWith(S_SUFFIX))
             throw new IllegalArgumentException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
-        s = s.substring(S_PREFIX.length(), s.length() - S_PREFIX.length() - S_SUFFIX.length());
+        s = s.substring(S_PREFIX.length(), s.length() - S_SUFFIX.length());
         if (s.equals(BROADCAST_STRING))
             return BROADCAST;
         if (s.equals(COORDINATOR_STRING))
@@ -63,15 +63,18 @@ public class XBeeAddress implements Comparable<XBeeAddress> {
 
     private XBeeAddress(String s) {
         this();
-        if (s.length() < 16)
-            throw new IllegalArgumentException("Address string is two short. Expected <64-BIT-HEX>[:<16-BIT-HEX>]");
+        int i= 0;
         int p = 0;
-        for (int i = 0; i < address.length && p < s.length(); i++) {
-            if (i == 8)
-                if (s.charAt(p++) != ':')
-                    throw new IllegalArgumentException("Missing separator. Expected <64bits>:<16bits>");
-            address[i] = HexUtil.parseByte(s.charAt(p++), s.charAt(p++));
+        while (i < address.length && p < s.length() - 1) {
+            // optional separator
+            if (s.charAt(p) == ':')
+                p++;
+            address[i++] = HexUtil.parseByte(s.charAt(p++), s.charAt(p++));
         }
+        if (p < s.length())
+            throw new IllegalArgumentException("Extra characters in address string [" + s + "]");
+        if (i < 8)
+            throw new IllegalArgumentException("Address string is too short. At least 8 hex bytes are expected [" + s + "]");
     }
 
     public byte[] getAddressBytes() {
