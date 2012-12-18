@@ -1,11 +1,13 @@
 package org.avrbuddy.xbee.cmd;
 
+import org.avrbuddy.log.Log;
 import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeVisitor;
 
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
@@ -15,6 +17,8 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
 
     public static final String OK = "OK";
     public static final String FAILED = "FAILED";
+
+    protected final Logger log = Log.getLogger(getClass());
 
     protected CommandDestination destination;
     protected String name;
@@ -52,14 +56,14 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
         validate();
         String result = executeImpl(ctx);
         if (result != null)
-            System.out.println(name + ": " + result);
+            log.info(name + ": " + result);
     }
 
     protected abstract String executeImpl(CommandContext ctx) throws IOException;
 
     @Override
     public void visitNode(XBeeNode node) {
-        System.out.println(name + ": " + node);
+        log.info(name + ": " + node);
     }
 
     public CommandDestination getDestination() {
