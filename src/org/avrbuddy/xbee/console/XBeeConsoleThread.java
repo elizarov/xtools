@@ -4,6 +4,7 @@ import org.avrbuddy.log.Log;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandParser;
 import org.avrbuddy.xbee.cmd.InvalidCommandException;
+import org.avrbuddy.xbee.cmd.impl.Help;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -28,7 +29,7 @@ class XBeeConsoleThread extends Thread {
     public void run() {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         while (true) {
-            System.out.print("> ");
+            System.err.print("> ");
             String line;
             try {
                 line = in.readLine();
@@ -44,7 +45,7 @@ class XBeeConsoleThread extends Thread {
                 CommandParser.parseCommand(line).execute(ctx);
             } catch (InvalidCommandException e) {
                 log.log(Level.WARNING, e.getMessage());
-                CommandParser.helpCommands();
+                log.info("Type '" + new Help() + "' for help.");
             } catch (IllegalArgumentException e) {
                 log.log(Level.WARNING, e.getMessage());
             } catch (IOException e) {

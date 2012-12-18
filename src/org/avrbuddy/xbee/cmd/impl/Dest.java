@@ -20,7 +20,7 @@ public class Dest extends Command {
 
     @Override
     public String getParameterDescription() {
-        return "[<target-node>]";
+        return "[<target>]";
     }
 
     @Override
