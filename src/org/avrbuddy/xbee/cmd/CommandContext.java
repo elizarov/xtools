@@ -35,4 +35,8 @@ public class CommandContext {
     public CommandContext(XBeeConnection conn) {
         this(conn, new XBeeNodeDiscovery(conn));
     }
+
+    public void close() {
+        conn.close();
+    }
 }

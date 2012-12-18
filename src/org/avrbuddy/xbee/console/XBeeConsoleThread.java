@@ -32,7 +32,7 @@ import java.util.logging.Logger;
 /**
  * @author Roman Elizarov
  */
-class XBeeConsoleThread extends Thread {
+public class XBeeConsoleThread extends Thread {
     private static final Logger log = Log.getLogger(XBeeConsoleThread.class);
 
     private final CommandContext ctx;

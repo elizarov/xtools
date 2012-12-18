@@ -23,8 +23,6 @@ import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandDestination;
 import org.avrbuddy.xbee.cmd.CommandParser;
 
-import java.io.IOException;
-
 /**
  * @author Roman Elizarov
  */
@@ -33,13 +31,22 @@ public class Help extends Command {
         setName("?");
     }
 
+    public static void showHelp() {
+        new Help().show();
+    }
+
     @Override
     public String getCommandDescription() {
         return "print this help";
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
+    protected String executeImpl(CommandContext ctx) {
+        show();
+        return null;
+    }
+
+    private void show() {
         logf("Available commands:");
         int n = CommandParser.PROTOTYPES.length;
         int m = 4;
@@ -64,7 +71,6 @@ public class Help extends Command {
         logf("  '%s'           -- coordinator node", XBeeAddress.COORDINATOR_STRING);
         logf("  '%s'<node-id>  -- a given node id (discovers by node id)", CommandDestination.NODE_ID_PREFIX);
         logf("  '['<hex>']'   -- a given serial number (8 bytes) and optional local address (2 bytes) in hex");
-        return null;
     }
     
     private void logf(String format, Object... args) {
