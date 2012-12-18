@@ -13,14 +13,18 @@ public abstract class CommandDestination {
     public static final String NODE_LOCAL = ".";
     public static final String NODE_ID_PREFIX = "@";
 
+    public static final CommandDestination LOCAL = new Local();
+    public static final CommandDestination COORDINATOR = new Address(XBeeAddress.COORDINATOR);
+    public static final CommandDestination BROADCAST = new Address(XBeeAddress.BROADCAST);
+
     public static CommandDestination parse(String s) {
         s = s.trim();
         if (s.equals(XBeeAddress.COORDINATOR_STRING))
-            return new Address(XBeeAddress.COORDINATOR);
+            return COORDINATOR;
         if (s.equals(XBeeAddress.BROADCAST_STRING))
-            return new Address(XBeeAddress.BROADCAST);
+            return BROADCAST;
         if (s.equals(NODE_LOCAL))
-            return new Local();
+            return LOCAL;
         if (s.startsWith(NODE_ID_PREFIX))
             return new NodeId(s.substring(NODE_ID_PREFIX.length()));
         if (s.startsWith(XBeeAddress.S_PREFIX))
@@ -42,10 +46,10 @@ public abstract class CommandDestination {
         return false;
     }
 
-    public static class Address extends CommandDestination {
+    private static class Address extends CommandDestination {
         private XBeeAddress address;
 
-        public Address(XBeeAddress address) {
+        Address(XBeeAddress address) {
             this.address = address;
         }
 
@@ -70,7 +74,9 @@ public abstract class CommandDestination {
         }
     }
 
-    public static class Local extends CommandDestination {
+    private static class Local extends CommandDestination {
+        Local() {}
+
         @Override
         public XBeeNode resolveNode(CommandContext ctx) throws IOException {
             return ctx.discovery.getOrDiscoverLocalNode();
@@ -82,10 +88,10 @@ public abstract class CommandDestination {
         }
     }
 
-    public static class NodeId extends CommandDestination {
+    private static class NodeId extends CommandDestination {
         private final String nodeId;
 
-        public NodeId(String nodeId) {
+        NodeId(String nodeId) {
             this.nodeId = nodeId;
         }
 

@@ -30,7 +30,7 @@ public class Dest extends Command {
 
     @Override
     public void validate() {
-        target = parameter == null ? new CommandDestination.Local() : CommandDestination.parse(parameter);
+        target = parameter == null ? CommandDestination.LOCAL : CommandDestination.parse(parameter);
     }
 
     @Override

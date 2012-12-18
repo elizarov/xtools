@@ -33,8 +33,6 @@ public class Send extends Command {
 
     @Override
     public void validate() {
-        if (destination == null)
-            destination = new CommandDestination.Address(XBeeAddress.BROADCAST);
         if (parameter == null)
             throw new InvalidCommandException(name + ": text is missing");
     }
@@ -43,7 +41,7 @@ public class Send extends Command {
     protected String executeImpl(CommandContext ctx) throws IOException {
         return ctx.conn.fmtStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                 ctx.conn.sendFramesWithId(XBeeTxFrame.newBuilder()
-                        .setDestination(destination.resolveAddress(ctx))
+                        .setDestination(destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx))
                         .setData(HexUtil.parseAscii(parameter)))));
     }
 }

@@ -1,6 +1,5 @@
 package org.avrbuddy.xbee.cmd.impl;
 
-import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandDestination;
@@ -24,14 +23,8 @@ public class Discover extends Command {
     }
 
     @Override
-    public void validate() {
-        if (destination == null)
-            destination = new CommandDestination.Address(XBeeAddress.BROADCAST);
-    }
-
-    @Override
     protected String executeImpl(CommandContext ctx) throws IOException {
-        if (destination.isBroadcast()) {
+        if (destination == null || destination.isBroadcast()) {
             int status = ctx.discovery.discoverAllNodes(this);
             return ctx.conn.fmtStatus(status);
         } else {
