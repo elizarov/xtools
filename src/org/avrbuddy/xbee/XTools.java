@@ -17,8 +17,9 @@
 
 package org.avrbuddy.xbee;
 
+import org.avrbuddy.conn.ConnectionOptions;
+import org.avrbuddy.conn.SerialConnection;
 import org.avrbuddy.log.Log;
-import org.avrbuddy.serial.SerialConnection;
 import org.avrbuddy.xbee.api.XBeeConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandParser;
@@ -47,13 +48,22 @@ public class XTools {
         }
 
         String port = args[0];
-        int baud = Integer.parseInt(args[1]);
+        ConnectionOptions options = new ConnectionOptions(Integer.parseInt(args[1]));
         String cmd = collect(args, 2, args.length).trim();
 
+        XBeeConnection conn;
         try {
-            new XTools(port, baud).go(cmd);
+            conn = XBeeConnection.open(SerialConnection.open(port, options));
         } catch (Throwable t) {
-            log.log(Level.SEVERE, "Failed", t);
+            log.log(Level.SEVERE, "Failed to open XBee connection", t);
+            return;
+        }
+        XTools instance = new XTools(options, conn);
+        try {
+            instance.go(cmd);
+        } catch (Throwable t) {
+            log.log(Level.SEVERE, "Failed to run", t);
+            instance.close();
         }
     }
 
@@ -69,23 +79,34 @@ public class XTools {
 
     // ---------------------------------- instance ----------------------------------
 
-    private CommandContext ctx;
+    private final CommandContext ctx;
 
-    private XTools(String port, int baud) throws IOException {
-        ctx = new CommandContext(XBeeConnection.open(SerialConnection.open(port, baud)));
+    private XTools(ConnectionOptions options, XBeeConnection conn) {
+        ctx = new CommandContext(conn, options);
     }
 
-    private void go(String cmd) throws IOException {
+    private void go(String cmd) throws IOException, InterruptedException {
         if (cmd.length() == 0) {
             // start console
             XBeeConsoleThread console = new XBeeConsoleThread(ctx);
             console.setDaemon(true);
             console.start();
+            // leave running console
         } else {
-            // execute command
-            CommandParser.parseCommand(cmd).execute(ctx);
-            // close connection
-            ctx.close();
+            try {
+                // execute command
+                CommandParser.parseCommand(cmd).execute(ctx);
+            } catch (IllegalArgumentException e) {
+                log.log(Level.WARNING, null, e);
+            }
+            // wait for background threads to finish
+            ctx.join();
+            // close after command finishes
+            close();
         }
+    }
+
+    private void close() {
+        ctx.close();
     }
 }

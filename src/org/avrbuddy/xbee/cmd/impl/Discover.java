@@ -30,7 +30,7 @@ import java.util.EnumSet;
 public class Discover extends Command {
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DESTINATION);
+        return EnumSet.of(Option.DEST);
     }
 
     @Override
@@ -39,7 +39,7 @@ public class Discover extends Command {
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
+    protected String invoke(CommandContext ctx) throws IOException {
         if (destination == null || destination.isBroadcast()) {
             int status = ctx.discovery.discoverAllNodes(this);
             return ctx.conn.fmtStatus(status);

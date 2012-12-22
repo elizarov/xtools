@@ -31,6 +31,8 @@ public class CommandParser {
             new Send(),
             new Dest(),
             new Reset(),
+            new Link(),
+            new Unlink(),
             new AtCommand(),
             new Discover(),
             new List(),
@@ -42,7 +44,7 @@ public class CommandParser {
         CommandDestination destination = CommandDestination.parse(s[0]);
         if (destination != null) {
             if (s.length < 2)
-                throw new InvalidCommandException("Command name is missing");
+                throw new IllegalArgumentException("Command name is missing");
             s = s[1].split("\\s", 2);
         }
         String name = s[0];
@@ -52,11 +54,11 @@ public class CommandParser {
                 Command cmd = prototype.clone();
                 cmd.setName(name);
                 cmd.setDestination(destination);
-                cmd.setParameter(parameter);
+                cmd.setArg(parameter);
                 return cmd;
             }
         }
-        throw new InvalidCommandException("Invalid command name '" + name + "'");
+        throw new IllegalArgumentException("Invalid command name '" + name + "'");
     }
 }
 

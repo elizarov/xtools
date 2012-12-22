@@ -22,13 +22,19 @@ import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandDestination;
 import org.avrbuddy.xbee.cmd.CommandParser;
+import org.avrbuddy.xbee.discover.XBeeNode;
+
+import java.util.ArrayList;
 
 /**
  * @author Roman Elizarov
  */
 public class Help extends Command {
+    private static final String SEP = "-";
+    private static final String HELP_COMMAND = "?";
+
     public Help() {
-        setName("?");
+        setName(HELP_COMMAND);
     }
 
     public static void showHelp() {
@@ -41,39 +47,68 @@ public class Help extends Command {
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) {
+    public String getHelpName() {
+        return "'" + HELP_COMMAND + "'";
+    }
+
+    @Override
+    protected String invoke(CommandContext ctx) {
         show();
         return null;
     }
 
     private void show() {
-        logf("Available commands:");
-        int n = CommandParser.PROTOTYPES.length;
-        int m = 4;
-        String[][] table = new String[n][m];
-        int[] width = new int[m];
-        for (int i = 0; i < n; i++) {
-            Command prototype = CommandParser.PROTOTYPES[i];
-            table[i][0] = prototype.getOptions().contains(Option.DESTINATION) ? "[<node>]" : "";
-            table[i][1] = prototype.getName();
-            table[i][2] = prototype.getParameterDescription();
-            table[i][3] = prototype.getCommandDescription();
-            for (int j = 0; j < m; j++)
-                width[j] = Math.max(width[j], table[i][j].length());
+        ArrayList<String[]> table = new ArrayList<String[]>();
+
+        info("Available commands:");
+        for (Command prototype : CommandParser.PROTOTYPES) {
+            table.add(str(
+                    prototype.getDestinationDescription(),
+                    prototype.getHelpName(),
+                    prototype.getParameterDescription(),
+                    SEP,
+                    prototype.getCommandDescription()
+            ));
         }
-        String format = "  %-" + width[0] + "s %-" + width[1] + "s %-" + width[2] + "s -- %s";
-        for (int i = 0; i < n; i++) {
-            logf(format, (Object[]) table[i]);
-        }
-        logf("Where <node> is one of:");
-        logf("  '%s'           -- local node", CommandDestination.NODE_LOCAL);
-        logf("  '%s'           -- broadcast", XBeeAddress.BROADCAST_STRING);
-        logf("  '%s'           -- coordinator node", XBeeAddress.COORDINATOR_STRING);
-        logf("  '%s'<node-id>  -- a given node id (discovers by node id)", CommandDestination.NODE_ID_PREFIX);
-        logf("  '['<hex>']'   -- a given serial number (8 bytes) and optional local address (2 bytes) in hex");
+        printTable(table);
+
+        info("Here <conn> is one of:");
+        table.clear();
+        table.add(str("<node>", SEP, "link to other remote node"));
+        table.add(str("<port> [<baud>]", SEP, "link to serial port"));
+        printTable(table);
+
+        info("Here <node> is one of:");
+        table.clear();
+        table.add(str("'" + CommandDestination.LOCAL_STRING + "'", SEP, "local node"));
+        table.add(str("'" + CommandDestination.BROADCAST + "'", SEP, "broadcast"));
+        table.add(str("'" + XBeeAddress.COORDINATOR_STRING + "'", SEP, "coordinator node"));
+        table.add(str("'" + XBeeNode.NODE_ID_PREFIX + "'<node-id>", SEP,
+                "a given node id (discovers by node id)"));
+        table.add(str("'['<hex>']'", SEP,
+                "a given serial number (8 bytes) and optional local address (2 bytes) in hex"));
+        printTable(table);
     }
-    
-    private void logf(String format, Object... args) {
-        log.info(String.format(format, args));
+
+    private static String[] str(String... s) {
+        return s;
+    }
+
+    private void printTable(ArrayList<String[]> table) {
+        int m = table.get(0).length;
+        int[] width = new int[m];
+        for (String[] row : table)
+            for (int j = 0; j < m; j++)
+                width[j] = Math.max(width[j], row[j].length());
+        StringBuilder sb = new StringBuilder(" ");
+        for (int j = 0; j < m; j++)
+            sb.append(" %-").append(width[j]).append("s");
+        String format = sb.toString();
+        for (String[] row : table)
+            info(String.format(format, (Object[]) row));
+    }
+
+    private void info(String msg) {
+        log.info(msg);
     }
 }

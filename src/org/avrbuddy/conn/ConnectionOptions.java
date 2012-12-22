@@ -15,13 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.avrbuddy.xbee.cmd;
+package org.avrbuddy.conn;
 
 /**
  * @author Roman Elizarov
  */
-public class InvalidCommandException extends IllegalArgumentException {
-    public InvalidCommandException(String s) {
-        super(s);
+public class ConnectionOptions {
+    private int baud;
+
+    public ConnectionOptions() {}
+
+    public ConnectionOptions(int baud) {
+        this.baud = baud;
+    }
+
+    public int getBaud() {
+        return baud;
     }
 }

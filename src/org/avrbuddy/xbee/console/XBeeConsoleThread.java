@@ -17,36 +17,34 @@
 
 package org.avrbuddy.xbee.console;
 
-import org.avrbuddy.log.Log;
+import org.avrbuddy.conn.ConsoleConnection;
+import org.avrbuddy.log.LoggedThread;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandParser;
-import org.avrbuddy.xbee.cmd.InvalidCommandException;
 import org.avrbuddy.xbee.cmd.impl.Help;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
-public class XBeeConsoleThread extends Thread {
-    private static final Logger log = Log.getLogger(XBeeConsoleThread.class);
-
+public class XBeeConsoleThread extends LoggedThread {
     private final CommandContext ctx;
 
     public XBeeConsoleThread(CommandContext ctx) {
-        super(XBeeConsoleThread.class.getName());
         this.ctx = ctx;
     }
 
     @Override
     public void run() {
-        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        BufferedReader in = new BufferedReader(
+                new InputStreamReader(ConsoleConnection.getCommandConsole().getInput()));
         while (true) {
-            System.err.print("> ");
+            if (!ConsoleConnection.hasRemoteConsoles())
+                System.err.print("> ");
             String line;
             try {
                 line = in.readLine();
@@ -58,16 +56,14 @@ public class XBeeConsoleThread extends Thread {
                 log.info("End of input stream");
                 return;
             }
+            boolean ok = false;
             try {
-                CommandParser.parseCommand(line).execute(ctx);
-            } catch (InvalidCommandException e) {
-                log.log(Level.WARNING, e.getMessage());
-                log.info("Type '" + new Help() + "' for help.");
+                ok = CommandParser.parseCommand(line).execute(ctx);
             } catch (IllegalArgumentException e) {
-                log.log(Level.WARNING, e.getMessage());
-            } catch (IOException e) {
-                log.log(Level.SEVERE, "Failed", e);
+                log.log(Level.WARNING, null, e);
             }
+            if (!ok)
+                log.info("Type '" + new Help() + "' for help.");
         }
     }
 }

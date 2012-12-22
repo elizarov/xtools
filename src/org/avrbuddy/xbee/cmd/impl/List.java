@@ -30,7 +30,7 @@ public class List extends Command {
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) {
+    protected String invoke(CommandContext ctx) {
         ctx.discovery.list(this);
         return OK;
     }

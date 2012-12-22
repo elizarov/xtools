@@ -17,12 +17,10 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
-import org.avrbuddy.hex.HexUtil;
-import org.avrbuddy.xbee.api.XBeeAddress;
-import org.avrbuddy.xbee.api.XBeeConnection;
-import org.avrbuddy.xbee.api.XBeeTxFrame;
 import org.avrbuddy.xbee.cmd.Command;
+import org.avrbuddy.xbee.cmd.CommandConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
+import org.avrbuddy.xbee.link.XBeeLink;
 
 import java.io.IOException;
 import java.util.EnumSet;
@@ -30,34 +28,39 @@ import java.util.EnumSet;
 /**
  * @author Roman Elizarov
  */
-public class Send extends Command {
-    @Override
-    public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DEST, Option.ARG);
-    }
+public class Link extends Command {
+    private CommandConnection conn;
 
     @Override
-    public String getParameterDescription() {
-        return "<text>";
+    public EnumSet<Option> getOptions() {
+        return EnumSet.of(Option.DEST, Option.DEST_REQUIRED, Option.ARG);
     }
 
     @Override
     public String getCommandDescription() {
-        return "send text to node (broadcast by default)";
+        return "link remote node input/output to a specified connection (to console by default)";
+    }
+
+    @Override
+    public String getParameterDescription() {
+        return "[<conn>]";
     }
 
     @Override
     public void validate(CommandContext ctx) {
         super.validate(ctx);
-        if (arg == null)
-            throw new IllegalArgumentException(name + ": text is missing");
+        conn = CommandConnection.parse(arg, ctx.options);
     }
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        return ctx.conn.fmtStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
-                ctx.conn.sendFramesWithId(XBeeTxFrame.newBuilder()
-                        .setDestination(destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx))
-                        .setData(HexUtil.parseAscii(arg)))));
+        XBeeLink link = new XBeeLink(ctx, destination.resolveAddress(ctx), conn);
+        try {
+            link.start();
+        } catch (IOException e) {
+            link.close();
+            throw e;
+        }
+        return OK;
     }
 }

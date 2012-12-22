@@ -17,28 +17,27 @@
 
 package org.avrbuddy.xbee.link;
 
+import org.avrbuddy.log.LoggedThread;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
 * @author Roman Elizarov
 */
-class XBeeLinkThread extends Thread {
+class XBeeLinkThread extends LoggedThread {
     private static final int BUF_SIZE = 1024;
     private static final long AGGREGATION_DELAY = 2; // wait to produce larger packets
 
-    private final Logger log;
     private final InputStream in;
     private final OutputStream out;
     private XBeeLinkThread other;
 
     public XBeeLinkThread(String name, InputStream in, OutputStream out) {
         super(name);
-        log = Logger.getLogger(XBeeLinkThread.class.getName() + ":" + name);
         this.in = in;
         this.out = out;
     }

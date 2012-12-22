@@ -17,8 +17,8 @@
 
 package org.avrbuddy.avr;
 
+import org.avrbuddy.conn.Connection;
 import org.avrbuddy.hex.HexUtil;
-import org.avrbuddy.serial.SerialConnection;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +29,7 @@ import java.io.OutputStream;
  * @author Roman Elizarov
  */
 public class AvrProgrammer {
-    private final SerialConnection serial;
+    private final Connection serial;
     private final AvrPart part;
 
     private static final long READ_TIMEOUT = 500;
@@ -42,7 +42,7 @@ public class AvrProgrammer {
     private static final byte STK_READ_PAGE     = 0x74; // 't'
     private static final byte STK_READ_SIGN     = 0x75; // 'u'
 
-    public static AvrProgrammer connect(SerialConnection serial) throws IOException {
+    public static AvrProgrammer connect(Connection serial) throws IOException {
         serial.setReadTimeout(READ_TIMEOUT);
         for (int attempt = 1; attempt <= 3; attempt++) {
             AvrProgrammer pgm;
@@ -62,7 +62,7 @@ public class AvrProgrammer {
         throw new IOException("Cannot connect to AVR bootloader");
     }
 
-    private static AvrProgrammer openAttempt(SerialConnection serial) throws IOException {
+    private static AvrProgrammer openAttempt(Connection serial) throws IOException {
         serial.resetHost();
         try {
             Thread.sleep(250);
@@ -79,7 +79,7 @@ public class AvrProgrammer {
         throw new IOException("Unknown AVR signature " + HexUtil.formatBytes(signature, 0, 3));
     }
 
-    private static void sync(SerialConnection serial) throws IOException {
+    private static void sync(Connection serial) throws IOException {
         OutputStream out = serial.getOutput();
         InputStream in = serial.getInput();
         out.write(STK_GET_SYNC);
@@ -89,7 +89,7 @@ public class AvrProgrammer {
             throw new AvrSyncException("Cannot get sync with AVR bootloader");
     }
 
-    private static byte[] signature(SerialConnection serial) throws IOException {
+    private static byte[] signature(Connection serial) throws IOException {
         OutputStream out = serial.getOutput();
         InputStream in = serial.getInput();
         out.write(STK_READ_SIGN);
@@ -103,7 +103,7 @@ public class AvrProgrammer {
         return signature;
     }
 
-    public AvrProgrammer(SerialConnection serial, AvrPart part) {
+    public AvrProgrammer(Connection serial, AvrPart part) {
         this.serial = serial;
         this.part = part;
     }

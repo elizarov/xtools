@@ -17,11 +17,13 @@
 
 package org.avrbuddy.xbee.link;
 
+import org.avrbuddy.conn.Connection;
 import org.avrbuddy.log.Log;
-import org.avrbuddy.serial.SerialConnection;
-import org.avrbuddy.xbee.api.XBeeConnection;
+import org.avrbuddy.util.State;
+import org.avrbuddy.xbee.api.XBeeAddress;
+import org.avrbuddy.xbee.cmd.CommandConnection;
+import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.discover.XBeeNode;
-import org.avrbuddy.xbee.discover.XBeeNodeDiscovery;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -35,64 +37,57 @@ public class XBeeLink {
 
     private static final long WRITE_TIMEOUT = 100; // 100ms
 
-    public static void main(String[] args) throws InterruptedException {
-        Log.init(XBeeLink.class);
-        if (args.length != 4) {
-            log.log(Level.SEVERE, "Usage: " + XBeeLink.class.getName() + " <XBee-port> <baud> <link-node-id> <link-port>");
-            return;
-        }
-        String port = args[0];
-        int baud = Integer.parseInt(args[1]);
-        String linkNodeId = args[2];
-        String linkPort = args[3];
-        try {
-            XBeeConnection conn = XBeeConnection.open(SerialConnection.open(port, baud));
-            try {
-                new XBeeLink(conn, baud, linkNodeId, linkPort).go();
-            } finally {
-                conn.close();
-            }
-        } catch (IOException e) {
-            log.log(Level.SEVERE, "Failed", e);
-        }
+    private static final int STARTED = 1;
+    private static final int CLOSED = 2;
+
+    private final CommandContext ctx;
+    private final XBeeAddress remoteAddress;
+    private final CommandConnection linkConnection;
+
+    private final State state = new State();
+
+    private Connection link;
+    private Connection tunnel;
+    private XBeeLinkThread remote2link;
+    private XBeeLinkThread link2remote;
+
+    public XBeeLink(CommandContext ctx, XBeeAddress remoteAddress, CommandConnection linkConnection) {
+        this.ctx = ctx;
+        this.remoteAddress = remoteAddress;
+        this.linkConnection = linkConnection;
     }
 
-    private final XBeeConnection conn;
-    private final int baud;
-    private final String linkNodeId;
-    private final String linkPort;
-
-    public XBeeLink(XBeeConnection conn, int baud, String linkNodeId, String linkPort) {
-        this.conn = conn;
-        this.baud = baud;
-        this.linkNodeId = linkNodeId;
-        this.linkPort = linkPort;
+    public CommandConnection getLinkConnection() {
+        return linkConnection;
     }
 
-    private void go() throws IOException, InterruptedException {
-        XBeeNodeDiscovery discovery = new XBeeNodeDiscovery(conn);
-        XBeeNode linkNode = discovery.getOrDiscoverByNodeId(linkNodeId, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
-        if (linkNode == null) {
-            log.log(Level.SEVERE, "Failed to discover link node @" + linkNodeId);
+    public XBeeAddress getRemoteAddress() {
+        return remoteAddress;
+    }
+
+    public void start() throws IOException {
+        if (!state.set(STARTED))
             return;
-        }
-        XBeeNode localNode = discovery.getOrDiscoverLocalNode();
+        if (state.is(CLOSED))
+            return;
+
+        XBeeNode localNode = ctx.discovery.getOrDiscoverLocalNode();
         if (localNode == null) {
             log.log(Level.SEVERE, "Failed to resolve local node");
             return;
         }
-        conn.changeRemoteDestination(linkNode.getAddress(), localNode.getAddress());
+        ctx.conn.changeRemoteDestination(remoteAddress, localNode.getAddress());
 
-        SerialConnection tunnel = conn.openTunnel(linkNode.getAddress());
-        SerialConnection link = SerialConnection.open(linkPort, baud);
+        link = linkConnection.openConnection(ctx);
+        tunnel = ctx.conn.openTunnel(remoteAddress);
 
-        tunnel.setWriteTimeout(WRITE_TIMEOUT);
         link.setWriteTimeout(WRITE_TIMEOUT);
+        tunnel.setWriteTimeout(WRITE_TIMEOUT);
 
         link.setOnConnected(new Reset(tunnel));
 
-        XBeeLinkThread remote2link = new XBeeLinkThread("remote->link", tunnel.getInput(), link.getOutput());
-        XBeeLinkThread link2remote = new XBeeLinkThread("link->remote", link.getInput(), tunnel.getOutput());
+        remote2link = new XBeeLinkThread("remote->link", tunnel.getInput(), link.getOutput());
+        link2remote = new XBeeLinkThread("link->remote", link.getInput(), tunnel.getOutput());
 
         remote2link.setOther(link2remote);
         link2remote.setOther(remote2link);
@@ -100,17 +95,30 @@ public class XBeeLink {
         remote2link.start();
         link2remote.start();
 
-        remote2link.join();
-        link2remote.join();
+        ctx.addLink(this);
+    }
 
-        tunnel.close();
-        link.close();
+    public void join() throws InterruptedException {
+        if (remote2link != null)
+            remote2link.join();
+        if (link2remote != null)
+            link2remote.join();
+    }
+
+    public void close() {
+        if (!state.set(CLOSED))
+            return;
+        if (tunnel != null)
+            tunnel.close();
+        if (link != null)
+            link.close();
+        ctx.removeLink(this);
     }
 
     private static class Reset implements Runnable {
-        private final SerialConnection tunnel;
+        private final Connection tunnel;
 
-        public Reset(SerialConnection tunnel) {
+        public Reset(Connection tunnel) {
             this.tunnel = tunnel;
         }
 

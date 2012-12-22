@@ -42,7 +42,7 @@ public class AtCommand extends Command {
 
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DESTINATION, Option.PARAMETER);
+        return EnumSet.of(Option.DEST, Option.ARG);
     }
 
     @Override
@@ -56,12 +56,12 @@ public class AtCommand extends Command {
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
+    protected String invoke(CommandContext ctx) throws IOException {
         XBeeFrameWithId[] responses = ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                 ctx.conn.sendFramesWithId(XBeeAtFrame.newBuilder(
                             destination == null ? null : destination.resolveAddress(ctx))
                         .setAtCommand(name)
-                        .setData(parameter == null ? new byte[0] : XBeeUtil.parseAtValue(name, parameter))));
+                        .setData(arg == null ? new byte[0] : XBeeUtil.parseAtValue(name, arg))));
         String result = "";
         if (responses[0] != null) {
             byte[] data = responses[0].getData();

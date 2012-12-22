@@ -62,7 +62,11 @@ public class XBeeNodeDiscovery {
         XBeeNode node = getLocalNode();
         if (node != null)
             return node;
-        return checkStatus(discoverDestinationNode(null, null), getLocalNode());
+        try {
+            return checkStatus(discoverDestinationNode(null, null), getLocalNode());
+        } catch (IOException e) {
+            throw new IOException("Failed to discover local node: " + e.getMessage(), e);
+        }
     }
 
     public XBeeNode getOrDiscoverByNodeId(String id, int attempts) throws IOException {
@@ -77,14 +81,23 @@ public class XBeeNodeDiscovery {
             if (status == XBeeAtResponseFrame.STATUS_OK)
                 break;
         }
-        return checkStatus(status, getByNodeId(id));
+        try {
+            return checkStatus(status, getByNodeId(id));
+        } catch (IOException e) {
+            throw new IOException("Failed to discover node " + XBeeNode.NODE_ID_PREFIX + id +
+                    " after " + XBeeNodeDiscovery.DISCOVER_ATTEMPTS + " attempts: " + e.getMessage(), e);
+        }
     }
 
     public XBeeNode getOrDiscoverNodeByAddress(XBeeAddress address) throws IOException {
         XBeeNode node = getNodeByAddress(address);
         if (node != null)
             return node;
-        return checkStatus(discoverDestinationNode(address, null), getNodeByAddress(address));
+        try {
+            return checkStatus(discoverDestinationNode(address, null), getNodeByAddress(address));
+        } catch (IOException e) {
+            throw new IOException("Failed to discover node " + address + ": " + e.getMessage(), e);
+        }
     }
 
     public synchronized XBeeNode getNodeByAddress(XBeeAddress address) {
@@ -192,9 +205,9 @@ public class XBeeNodeDiscovery {
 
     private XBeeNode checkStatus(int status, XBeeNode result) throws IOException {
         if (status != XBeeAtResponseFrame.STATUS_OK)
-            throw new IOException("Discovery failed: " + conn.fmtStatus(status));
+            throw new IOException(conn.fmtStatus(status));
         if (result == null)
-            throw new IOException("Discovery failed for unknown reason");
+            throw new IOException("Reason unknown");
         return result;
     }
 

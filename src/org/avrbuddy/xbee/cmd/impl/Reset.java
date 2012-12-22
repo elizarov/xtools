@@ -29,17 +29,16 @@ import java.util.EnumSet;
 public class Reset extends Command {
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DESTINATION);
+        return EnumSet.of(Option.DEST, Option.DEST_REQUIRED);
     }
 
     @Override
     public String getCommandDescription() {
-        return "reset node with D3 (node is local by default)";
+        return "reset node with D3";
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
-        return ctx.conn.fmtStatus(ctx.conn.resetRemoteHost(
-                destination == null ? null : destination.resolveAddress(ctx)));
+    protected String invoke(CommandContext ctx) throws IOException {
+        return ctx.conn.fmtStatus(ctx.conn.resetRemoteHost(destination.resolveAddress(ctx)));
     }
 }

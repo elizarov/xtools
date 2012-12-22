@@ -24,13 +24,14 @@ import org.avrbuddy.xbee.discover.XBeeNodeVisitor;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.Locale;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
 public abstract class Command implements XBeeNodeVisitor, Cloneable {
-    public enum Option { DESTINATION, PARAMETER }
+    public enum Option {DEST, DEST_REQUIRED, ARG }
 
     public static final String OK = "OK";
     public static final String FAILED = "FAILED";
@@ -39,10 +40,10 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
 
     protected CommandDestination destination;
     protected String name;
-    protected String parameter;
+    protected String arg;
 
     public Command() {
-        this.name = getClass().getSimpleName().toUpperCase(Locale.US);
+        this.name = getClass().getSimpleName().toLowerCase(Locale.US);
     }
 
     public boolean hasName(String name) {
@@ -61,22 +62,46 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
         return EnumSet.noneOf(Option.class);
     }
 
+    public String getDestinationDescription() {
+        EnumSet<Option> options = getOptions();
+        return  !options.contains(Option.DEST) ? "" :
+                options.contains(Option.DEST_REQUIRED) ? " <node> " : "[<node>]";
+    }
+
     public String getParameterDescription() {
         return "";
     }
 
     public abstract String getCommandDescription();
 
-    public void validate() {}
-
-    public void execute(CommandContext ctx) throws IOException {
-        validate();
-        String result = executeImpl(ctx);
+    // returns true if command executed (successfully or not), false is user needs help
+    public final boolean execute(CommandContext ctx) {
+        String result;
+        try {
+            validate(ctx);
+            result = invoke(ctx);
+        } catch (IllegalArgumentException e) {
+            log.log(Level.WARNING, name, e);
+            return false;
+        } catch (Exception e) {
+            log.log(Level.SEVERE, name, e);
+            return true;
+        }
         if (result != null)
             log.info(name + ": " + result);
+        return true;
     }
 
-    protected abstract String executeImpl(CommandContext ctx) throws IOException;
+    public void validate(CommandContext ctx) {
+        if (getOptions().contains(Option.DEST_REQUIRED) && destination == null)
+            throw new IllegalArgumentException("Destination node is required");
+        if (destination != null && !getOptions().contains(Option.DEST))
+            throw new IllegalArgumentException("Does not support destination");
+        if (arg != null && !getOptions().contains(Option.ARG))
+            throw new IllegalArgumentException("Does not expect arguments");
+    }
+
+    protected abstract String invoke(CommandContext ctx) throws IOException;
 
     @Override
     public void visitNode(XBeeNode node) {
@@ -88,8 +113,6 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
     }
 
     public void setDestination(CommandDestination destination) {
-        if (destination != null && !getOptions().contains(Option.DESTINATION))
-            throw new InvalidCommandException(name + " does not support destination");
         this.destination = destination;
     }
 
@@ -101,14 +124,16 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
         this.name = name;
     }
 
-    public String getParameter() {
-        return parameter;
+    public String getArg() {
+        return arg;
     }
 
-    public void setParameter(String parameter) {
-        if (parameter != null && !getOptions().contains(Option.PARAMETER))
-            throw new InvalidCommandException(name + " does not expect arguments");
-        this.parameter = parameter;
+    public void setArg(String arg) {
+        this.arg = arg;
+    }
+
+    public String getHelpName() {
+        return name;
     }
 
     @Override
@@ -117,8 +142,8 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
         if (destination != null)
             sb.append(destination).append(' ');
         sb.append(name);
-        if (parameter != null)
-            sb.append(' ').append(parameter);
+        if (arg != null)
+            sb.append(' ').append(arg);
         return sb.toString();
     }
 }

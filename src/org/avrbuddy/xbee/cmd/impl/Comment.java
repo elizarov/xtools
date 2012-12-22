@@ -35,7 +35,7 @@ public class Comment extends Command {
 
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.PARAMETER);
+        return EnumSet.of(Option.ARG);
     }
 
     @Override
@@ -49,7 +49,12 @@ public class Comment extends Command {
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
+    protected String invoke(CommandContext ctx) throws IOException {
         return null; // does nothing
+    }
+
+    @Override
+    public String getHelpName() {
+        return "'" + COMMENT_PREFIX + "'";
     }
 }

@@ -17,26 +17,70 @@
 
 package org.avrbuddy.xbee.cmd;
 
+import org.avrbuddy.conn.ConnectionOptions;
+import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.api.XBeeConnection;
 import org.avrbuddy.xbee.discover.XBeeNodeDiscovery;
+import org.avrbuddy.xbee.link.XBeeLink;
+
+import java.util.*;
 
 /**
  * @author Roman Elizarov
  */
 public class CommandContext {
     public final XBeeConnection conn;
+    public final ConnectionOptions options;
     public final XBeeNodeDiscovery discovery;
 
-    public CommandContext(XBeeConnection conn, XBeeNodeDiscovery discovery) {
+    private final Map<XBeeAddress, List<XBeeLink>> links = new HashMap<XBeeAddress, List<XBeeLink>>();
+
+    public CommandContext(XBeeConnection conn, ConnectionOptions options) {
         this.conn = conn;
-        this.discovery = discovery;
+        this.options = options;
+        this.discovery = new XBeeNodeDiscovery(conn);
     }
 
-    public CommandContext(XBeeConnection conn) {
-        this(conn, new XBeeNodeDiscovery(conn));
+    public void join() throws InterruptedException {
+        for (XBeeLink link : getLinks())
+            link.join();
     }
 
     public void close() {
+        for (XBeeLink link : getLinks())
+            link.close();
         conn.close();
+    }
+
+    public List<XBeeLink> getLinks() {
+        List<XBeeLink> result = new ArrayList<XBeeLink>();
+        synchronized (this) {
+            for (List<XBeeLink> list : links.values())
+                result.addAll(list);
+        }
+        return result;
+    }
+
+    public synchronized List<XBeeLink> getLinks(XBeeAddress remoteAddress) {
+        if (remoteAddress == null)
+            return getLinks();
+        List<XBeeLink> result = links.get(remoteAddress);
+        return result == null ? Collections.<XBeeLink>emptyList() : result;
+    }
+
+    public synchronized void addLink(XBeeLink link) {
+        List<XBeeLink> list = links.get(link.getRemoteAddress());
+        if (list == null)
+            links.put(link.getRemoteAddress(), list = new ArrayList<XBeeLink>());
+        list.add(link);
+    }
+
+    public synchronized void removeLink(XBeeLink link) {
+        List<XBeeLink> list = links.get(link.getRemoteAddress());
+        if (list == null)
+            return;
+        list.remove(link);
+        if (list.isEmpty())
+            links.remove(link.getRemoteAddress());
     }
 }

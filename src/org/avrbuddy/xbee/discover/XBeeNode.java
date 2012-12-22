@@ -23,6 +23,8 @@ import org.avrbuddy.xbee.api.XBeeAddress;
  * @author Roman Elizarov
  */
 public class XBeeNode implements Comparable<XBeeNode> {
+    public static final String NODE_ID_PREFIX = "@";
+
     private XBeeAddress address;
     private String id;
     private boolean localNode;
@@ -47,7 +49,7 @@ public class XBeeNode implements Comparable<XBeeNode> {
 
     @Override
     public String toString() {
-        return address + " @" + id + (localNode ? " ." : "");
+        return address + " " + NODE_ID_PREFIX + id + (localNode ? " ." : "");
     }
 
     @Override

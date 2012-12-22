@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.avrbuddy.serial;
+package org.avrbuddy.conn;
 
 import gnu.io.*;
 import org.avrbuddy.util.State;
@@ -129,12 +129,12 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     }
 
     @Override
-    public void setReadTimeout(long timeout) throws IOException {
+    public void setReadTimeout(long timeout) {
         in.setTimeout(timeout);
     }
 
     @Override
-    public void setWriteTimeout(long timeout) throws IOException {
+    public void setWriteTimeout(long timeout) {
         out.setTimeout(timeout);
     }
 
@@ -142,8 +142,8 @@ class SerialConnectionImpl extends SerialConnection implements SerialPortEventLi
     public void setHardwareFlowControl(int mode) throws IOException {
         try {
             serialPort.setFlowControlMode(
-                    ((mode & SerialConnection.FLOW_CONTROL_IN) == 0  ? 0 : SerialPort.FLOWCONTROL_RTSCTS_IN) |
-                    ((mode & SerialConnection.FLOW_CONTROL_OUT) == 0 ? 0 : SerialPort.FLOWCONTROL_RTSCTS_OUT));
+                    ((mode & FLOW_CONTROL_IN) == 0  ? 0 : SerialPort.FLOWCONTROL_RTSCTS_IN) |
+                    ((mode & FLOW_CONTROL_OUT) == 0 ? 0 : SerialPort.FLOWCONTROL_RTSCTS_OUT));
         } catch (UnsupportedCommOperationException e) {
             throw new IOException(e);
         }

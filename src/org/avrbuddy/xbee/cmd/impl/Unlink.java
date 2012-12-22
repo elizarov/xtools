@@ -17,20 +17,21 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
-import org.avrbuddy.hex.HexUtil;
-import org.avrbuddy.xbee.api.XBeeAddress;
-import org.avrbuddy.xbee.api.XBeeConnection;
-import org.avrbuddy.xbee.api.XBeeTxFrame;
 import org.avrbuddy.xbee.cmd.Command;
+import org.avrbuddy.xbee.cmd.CommandConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
+import org.avrbuddy.xbee.link.XBeeLink;
 
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.List;
 
 /**
  * @author Roman Elizarov
  */
-public class Send extends Command {
+public class Unlink extends Command {
+    private CommandConnection conn;
+
     @Override
     public EnumSet<Option> getOptions() {
         return EnumSet.of(Option.DEST, Option.ARG);
@@ -38,26 +39,30 @@ public class Send extends Command {
 
     @Override
     public String getParameterDescription() {
-        return "<text>";
+        return "[<conn>]";
     }
 
     @Override
     public String getCommandDescription() {
-        return "send text to node (broadcast by default)";
+        return "unlink remote connection (all connections to console by default)";
     }
 
     @Override
     public void validate(CommandContext ctx) {
         super.validate(ctx);
-        if (arg == null)
-            throw new IllegalArgumentException(name + ": text is missing");
+        conn = CommandConnection.parse(arg, ctx.options);
     }
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        return ctx.conn.fmtStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
-                ctx.conn.sendFramesWithId(XBeeTxFrame.newBuilder()
-                        .setDestination(destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx))
-                        .setData(HexUtil.parseAscii(arg)))));
+        List<XBeeLink> links = destination == null ? ctx.getLinks() :
+                ctx.getLinks(destination.resolveAddress(ctx));
+        int cnt = 0;
+        for (XBeeLink link : links)
+            if (conn.equals(link.getLinkConnection())) {
+                link.close();
+                cnt++;
+            }
+        return OK + ": Closed " + cnt + " " + (cnt == 1 ? "link" : "links");
     }
 }

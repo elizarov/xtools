@@ -18,9 +18,11 @@
 package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.avr.AvrProgrammer;
+import org.avrbuddy.conn.Connection;
+import org.avrbuddy.conn.SerialConnection;
 import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.log.Log;
-import org.avrbuddy.serial.SerialConnection;
+import org.avrbuddy.log.LoggedThread;
 import org.avrbuddy.util.State;
 
 import java.io.*;
@@ -164,7 +166,7 @@ public class XBeeConnection {
 
     // -------------- HIGH-LEVER PUBLIC OPERATION --------------
 
-    public SerialConnection openTunnel(XBeeAddress destination) throws IOException {
+    public Connection openTunnel(XBeeAddress destination) throws IOException {
         return new XBeeTunnel(this, destination, getMaxPayloadSize());
     }
 
@@ -192,7 +194,7 @@ public class XBeeConnection {
     }
 
     public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
-        SerialConnection tunnel = openTunnel(destination);
+        Connection tunnel = openTunnel(destination);
         try {
             return AvrProgrammer.connect(tunnel);
         } catch (IOException e) {
@@ -207,7 +209,7 @@ public class XBeeConnection {
         this.serial = serial;
         in = new DataInputStream(new UnescapeStream(serial.getInput()));
         out = new DataOutputStream(new EscapeStream(serial.getOutput()));
-        reader = new ReaderThread("XBeeReader-" + serial);
+        reader = new Reader();
     }
 
     private void configureConnection() throws IOException {
@@ -325,9 +327,9 @@ public class XBeeConnection {
         }
     }
 
-    private class ReaderThread extends Thread {
-        ReaderThread(String name) {
-            super(name);
+    private class Reader extends LoggedThread {
+        Reader() {
+            super(serial.toString());
         }
 
         @Override
@@ -342,8 +344,8 @@ public class XBeeConnection {
                 // ignored, exit
             } catch (InterruptedIOException e) {
                 // ignored, exit
-            } catch (IOException e) {
-                log.log(Level.SEVERE, "IO Exception", e);
+            } catch (Exception e) {
+                log.log(Level.SEVERE, null, e);
             }
             close();
         }

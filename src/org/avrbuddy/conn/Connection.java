@@ -15,25 +15,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.avrbuddy.xbee.cmd.impl;
+package org.avrbuddy.conn;
 
-import org.avrbuddy.xbee.cmd.Command;
-import org.avrbuddy.xbee.cmd.CommandContext;
+import org.avrbuddy.log.Log;
 
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
-public class Exit extends Command {
-    @Override
-    public String getCommandDescription() {
-        return "exit the process";
-    }
+public abstract class Connection implements Closeable {
+    protected final Logger log = Log.getLogger(getClass());
 
-    @Override
-    protected String invoke(CommandContext ctx) throws IOException {
-        System.exit(0);
-        return null;
-    }
+    public abstract InputStream getInput();
+    public abstract OutputStream getOutput();
+
+    public abstract void drainInput() throws IOException;
+    public abstract void setReadTimeout(long timeout);
+    public abstract void setWriteTimeout(long timeout);
+    public abstract void close();
+
+    public void resetHost() throws IOException {}
+    public void setOnConnected(Runnable action) {}
+
+    public abstract String toString();
 }

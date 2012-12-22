@@ -32,7 +32,7 @@ public class Dest extends Command {
 
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DESTINATION, Option.PARAMETER);
+        return EnumSet.of(Option.DEST, Option.DEST_REQUIRED, Option.ARG);
     }
 
     @Override
@@ -42,18 +42,19 @@ public class Dest extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "change destination node with DH,DL (nodes are local by default)";
+        return "change destination node with DH,DL (target is local by default)";
     }
 
     @Override
-    public void validate() {
-        target = parameter == null ? CommandDestination.LOCAL : CommandDestination.parse(parameter);
+    public void validate(CommandContext ctx) {
+        super.validate(ctx);
+        target = arg == null ? CommandDestination.LOCAL : CommandDestination.parse(arg);
     }
 
     @Override
-    protected String executeImpl(CommandContext ctx) throws IOException {
+    protected String invoke(CommandContext ctx) throws IOException {
         int status = ctx.conn.changeRemoteDestination(
-                destination == null ? null : destination.resolveAddress(ctx),
+                destination.resolveAddress(ctx),
                 target.resolveAddress(ctx));
         return ctx.conn.fmtStatus(status);
     }

@@ -27,8 +27,7 @@ import java.io.IOException;
  * @author Roman Elizarov
  */
 public abstract class CommandDestination {
-    public static final String NODE_LOCAL = ".";
-    public static final String NODE_ID_PREFIX = "@";
+    public static final String LOCAL_STRING = ".";
 
     public static final CommandDestination LOCAL = new Local();
     public static final CommandDestination COORDINATOR = new Address(XBeeAddress.COORDINATOR);
@@ -40,18 +39,16 @@ public abstract class CommandDestination {
             return COORDINATOR;
         if (s.equals(XBeeAddress.BROADCAST_STRING))
             return BROADCAST;
-        if (s.equals(NODE_LOCAL))
+        if (s.equals(LOCAL_STRING))
             return LOCAL;
-        if (s.startsWith(NODE_ID_PREFIX))
-            return new NodeId(s.substring(NODE_ID_PREFIX.length()));
+        if (s.startsWith(XBeeNode.NODE_ID_PREFIX))
+            return new NodeId(s.substring(XBeeNode.NODE_ID_PREFIX.length()));
         if (s.startsWith(XBeeAddress.S_PREFIX))
-            try {
-                return new Address(XBeeAddress.valueOf(s));
-            } catch (IllegalArgumentException e) {
-                throw new InvalidCommandException(e.getMessage());
-            }
+            return new Address(XBeeAddress.valueOf(s));
         return null;
     }
+
+    // -------------------------- instance --------------------------
 
     public abstract XBeeNode resolveNode(CommandContext ctx) throws IOException;
 
@@ -89,6 +86,16 @@ public abstract class CommandDestination {
         public String toString() {
             return address.toString();
         }
+
+        @Override
+        public boolean equals(Object o) {
+            return this == o || o instanceof Address && address.equals(((Address) o).address);
+        }
+
+        @Override
+        public int hashCode() {
+            return address.hashCode();
+        }
     }
 
     private static class Local extends CommandDestination {
@@ -101,7 +108,17 @@ public abstract class CommandDestination {
 
         @Override
         public String toString() {
-            return NODE_LOCAL;
+            return LOCAL_STRING;
+        }
+
+        @Override
+        public int hashCode() {
+            return 1;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof Local;
         }
     }
 
@@ -114,16 +131,22 @@ public abstract class CommandDestination {
 
         @Override
         public XBeeNode resolveNode(CommandContext ctx) throws IOException {
-            XBeeNode node = ctx.discovery.getOrDiscoverByNodeId(nodeId, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
-            if (node == null)
-                throw new InvalidCommandException("Failed to discover remote node " + toString() +
-                        " after " + XBeeNodeDiscovery.DISCOVER_ATTEMPTS + " attempts");
-            return node;
+            return ctx.discovery.getOrDiscoverByNodeId(nodeId, XBeeNodeDiscovery.DISCOVER_ATTEMPTS);
         }
 
         @Override
         public String toString() {
-            return NODE_ID_PREFIX + nodeId;
+            return XBeeNode.NODE_ID_PREFIX + nodeId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return this == o || o instanceof NodeId && nodeId.equals(((NodeId) o).nodeId);
+        }
+
+        @Override
+        public int hashCode() {
+            return nodeId.hashCode();
         }
     }
 }
