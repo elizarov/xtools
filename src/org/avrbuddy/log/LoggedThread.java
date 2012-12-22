@@ -17,22 +17,31 @@
 
 package org.avrbuddy.log;
 
-import java.util.logging.Formatter;
-import java.util.logging.LogRecord;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
-class ConsoleFormatter extends Formatter {
-    @Override
-    public String format(LogRecord record) {
-        String message = formatMessage(record);
-        Throwable thrown = record.getThrown();
-        if (thrown == null)
-            return String.format("%s%n", message);
-        String thrownMessage = thrown.getMessage() == null ? thrown.toString() : thrown.getMessage();
-        return  message == null ?
-                String.format("%s%n", thrownMessage) :
-                String.format("%s: %s%n", message, thrownMessage);
+public class LoggedThread extends Thread {
+    protected final Logger log;
+
+    public LoggedThread() {
+        log = Log.getLogger(getClass());
+        setName(getClass().getSimpleName());
+        setUncaughtExceptionHandler(new Handler());
+    }
+
+    public LoggedThread(String name) {
+        log = Logger.getLogger(getClass() + ":" + name);
+        setName(getClass().getSimpleName() + ":" + name);
+        setUncaughtExceptionHandler(new Handler());
+    }
+
+    private class Handler implements UncaughtExceptionHandler {
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
+            log.log(Level.SEVERE, "Thread failed", e);
+        }
     }
 }

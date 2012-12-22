@@ -32,7 +32,10 @@ class FileFormatter extends Formatter {
     public String format(LogRecord record) {
         String time = new SimpleDateFormat("yyyyMMdd HHmmss.SSS").format(new Date(record.getMillis()));
         String name = record.getLoggerName();
-        int i = name.lastIndexOf('.');
+        int i = name.lastIndexOf('$');
+        if (i > 0)
+            name = name.substring(i + 1);
+        i = name.lastIndexOf('.');
         if (i > 0)
             name = name.substring(i + 1);
         String str = formatFullMessage(record);
@@ -40,12 +43,14 @@ class FileFormatter extends Formatter {
     }
 
     private String formatFullMessage(LogRecord record) {
-        if (record.getThrown() == null)
-            return String.format("%s%n", formatMessage(record));
+        String message = formatMessage(record);
+        Throwable thrown = record.getThrown();
+        if (thrown == null)
+            return String.format("%s%n", message);
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        pw.println(formatMessage(record));
-        record.getThrown().printStackTrace(pw);
+        pw.println(message == null ? thrown.getMessage() : message);
+        thrown.printStackTrace(pw);
         pw.close();
         return sw.toString();
     }
