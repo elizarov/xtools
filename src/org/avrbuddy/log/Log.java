@@ -57,7 +57,7 @@ public class Log {
         }
 
         // Done
-        main.info("------------ Started " + mainClass.getSimpleName() + " ------------");
+        main.info("-- Started " + mainClass.getSimpleName() + ", (C) 2010-2012, Roman Elizarov");
     }
 
     public static Logger getLogger(Class<?> loggingClass) {
