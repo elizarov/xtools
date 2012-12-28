@@ -33,6 +33,7 @@ public class CommandParser {
             new Reset(),
             new Link(),
             new Unlink(),
+            new Avr(),
             new AtCommand(),
             new Discover(),
             new List(),

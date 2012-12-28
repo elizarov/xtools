@@ -72,13 +72,13 @@ public class Help extends Command {
         }
         printTable(table);
 
-        info("Here <conn> is one of:");
+        info("Where <conn> is one of:");
         table.clear();
         table.add(str("<node>", SEP, "link to other remote node"));
         table.add(str("<port> [<baud>]", SEP, "link to serial port"));
         printTable(table);
 
-        info("Here <node> is one of:");
+        info("Where <node> is one of:");
         table.clear();
         table.add(str("'" + CommandDestination.LOCAL_STRING + "'", SEP, "local node"));
         table.add(str("'" + CommandDestination.BROADCAST + "'", SEP, "broadcast"));
@@ -88,6 +88,9 @@ public class Help extends Command {
         table.add(str("'['<hex>']'", SEP,
                 "a given serial number (8 bytes) and optional local address (2 bytes) in hex"));
         printTable(table);
+
+        info("Where <memop> is <memtype>:<memcmd>:<filename>[:<format>] and");
+        info("  <memtype> is 'f' or 'e'; <memcmd> is 'r', 'w', or 'v'; and the only supported <format> in 'i'");
     }
 
     private static String[] str(String... s) {

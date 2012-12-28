@@ -15,25 +15,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.avrbuddy.hex;
+package org.avrbuddy.avr;
+
+import org.avrbuddy.util.WrongFormatException;
 
 /**
  * @author Roman Elizarov
  */
-public class HexBlock {
-    private final int offset;
-    private final byte[] data;
+public enum AvrMemCmd {
+    READ('R'),
+    WRITE('W'),
+    VERIFY('V');
 
-    public HexBlock(int offset, byte[] data) {
-        this.offset = offset;
-        this.data = data;
+    public static AvrMemCmd parse(String s) throws WrongFormatException {
+        for (AvrMemCmd cmd : values())
+            if (s.equalsIgnoreCase(cmd.codeStr))
+                return cmd;
+        throw new WrongFormatException("Unrecognized memory command '" + s + "'");
     }
 
-    public int getOffset() {
-        return offset;
+    // -------------------------- instance --------------------------
+
+    private final char code;
+    private final String codeStr;
+
+    private AvrMemCmd(char code) {
+        this.code = code;
+        codeStr = String.valueOf(code);
     }
 
-    public byte[] getData() {
-        return data;
+    public char code() {
+        return code;
     }
+
 }

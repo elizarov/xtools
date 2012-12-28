@@ -58,6 +58,7 @@ public class XBeeConsoleThread extends LoggedThread {
             }
             boolean ok = false;
             try {
+                log.fine("Executing " + line);
                 ok = CommandParser.parseCommand(line).execute(ctx);
             } catch (IllegalArgumentException e) {
                 log.log(Level.WARNING, null, e);

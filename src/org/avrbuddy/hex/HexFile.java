@@ -18,14 +18,18 @@
 package org.avrbuddy.hex;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * @author Roman Elizarov
  */
 public class HexFile {
-    private final List<HexBlock> blocks = new ArrayList<HexBlock>();
+    private static final String LINE_PREFIX = ":";
+    private static final int TYPE_DATA = 0;
+    private static final int TYPE_EOF = 1;
+    private static final int WRITE_BLOCK_SIZE = 32;
+
+    private int baseOffset = -1;
+    private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
     public static HexFile read(File file) throws IOException {
         HexFile result = new HexFile();
@@ -49,10 +53,47 @@ public class HexFile {
         return result;
     }
 
+    public static void write(File file, int baseOffset, byte[] bytes, int len) throws IOException {
+        PrintWriter out = new PrintWriter(file);
+        byte[] buf = new byte[5 + WRITE_BLOCK_SIZE];
+        try {
+            for (int ofs = 0; ofs < len; ofs += WRITE_BLOCK_SIZE) {
+                int length = Math.min(WRITE_BLOCK_SIZE, len - ofs);
+                int offset = baseOffset + ofs;
+                if (offset > 0xffff)
+                    throw new IOException("Offset is too large for Intel Hex file");
+                buf[0] = (byte)length;
+                buf[1] = (byte)(offset >> 8);
+                buf[2] = (byte)offset;
+                buf[3] = (byte)TYPE_DATA;
+                System.arraycopy(bytes, ofs, buf, 4, length);
+                writeLineWithCheckSum(out, buf, length + 4);
+            }
+            buf[0] = 0;
+            buf[1] = 0;
+            buf[2] = 0;
+            buf[3] = (byte)TYPE_EOF;
+            writeLineWithCheckSum(out, buf, 4);
+        } finally {
+            out.close();
+        }
+    }
+
+    private static void writeLineWithCheckSum(PrintWriter out, byte[] buf, int len) {
+        int sum = 0;
+        for (int i = 0; i < len; i++)
+            sum += buf[i] & 0xff;
+        buf[len] = (byte)(-sum);
+        out.print(LINE_PREFIX);
+        out.println(HexUtil.formatBytes(buf, 0, len + 1));
+    }
+
+    // -------------------------- instance --------------------------
+
     private void parseLine(String line) throws IOException {
         if (line.length() == 0)
             return;
-        if (!line.startsWith(":"))
+        if (!line.startsWith(LINE_PREFIX))
             throw new IOException("Line must start with ':'.");
         if (line.length() < 11)
             throw new IOException("Line is too short.");
@@ -71,28 +112,33 @@ public class HexFile {
         int offset = HexUtil.parseNibbles(line, 3, 7);
         int type = HexUtil.parseNibbles(line, 7, 9);
         if (length * 2 != line.length() - 11)
-            throw new InvalidObjectException("Invalid byte count.");
-        if (type == 0)
-            add(new HexBlock(offset, HexUtil.parseBytes(line, 9, line.length() - 2)));
-    }
-
-    private void add(HexBlock block) throws IOException {
-        if (!blocks.isEmpty()) {
-            HexBlock last = blocks.get(blocks.size() - 1);
-            if (block.getOffset() < last.getOffset() + last.getData().length)
-                throw new IOException("Blocks intersect or in invalid order.");
+            throw new IOException("Invalid byte count.");
+        if (type == TYPE_DATA) {
+            byte[] b = HexUtil.parseBytes(line, 9, line.length() - 2);
+            if (baseOffset < 0) {
+                baseOffset = offset;
+            } else if (baseOffset + bytes.size() != offset)
+                throw new IOException("Blocks intersect or in invalid order");
+            bytes.write(b);
         }
-        blocks.add(block);
     }
 
     private HexFile() {
     }
 
     public boolean isEmpty() {
-        return blocks.isEmpty();
+        return getLength() == 0;
     }
 
-    public List<HexBlock> getBlocks() {
-        return blocks;
+    public int getBaseOffset() {
+        return baseOffset;
+    }
+
+    public int getLength() {
+        return bytes.size();
+    }
+
+    public byte[] getBytes() {
+        return bytes.toByteArray();
     }
 }
