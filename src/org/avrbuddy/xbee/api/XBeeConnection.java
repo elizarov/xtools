@@ -86,7 +86,7 @@ public class XBeeConnection {
 
     public synchronized void sendFrames(XBeeFrame... frames) throws IOException {
         for (XBeeFrame frame : frames) {
-            log.fine("-> " + frame);
+            log.finer("-> " + frame);
         }
         for (XBeeFrame frame : frames) {
             sendFrameInternal(frame);
@@ -184,13 +184,9 @@ public class XBeeConnection {
     // destination == null to reset local node via local AT commands
     public int resetRemoteHost(XBeeAddress destination) throws IOException {
         log.info("Resetting remote host " + destination);
-        // do the actual reset (D3 -> output, low)
-        int status = getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}))));
-        // restore config (D3 -> disable).
-        // don't wait for the second message, because reset was already initiated by the first one
-        sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
-        return status;
+        return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0})));
     }
 
     // -------------- PRIVATE CONSTRUCTOR AND HELPER METHODS --------------
@@ -327,7 +323,7 @@ public class XBeeConnection {
             try {
                 while (!state.is(CLOSED)) {
                     XBeeFrame frame = nextFrame();
-                    log.fine("<- " + frame);
+                    log.finer("<- " + frame);
                     dispatch(frame);
                 }
             } catch (EOFException e) {

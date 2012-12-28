@@ -17,17 +17,15 @@
 
 package org.avrbuddy.avr;
 
-import java.io.IOException;
-
 /**
  * @author Roman Elizarov
  */
-class AvrSyncException extends IOException {
-    public AvrSyncException(String message) {
+class AvrSyncTimeoutException extends AvrSyncException {
+    AvrSyncTimeoutException(String message) {
         super(message);
     }
 
-    public AvrSyncException(String message, Throwable cause) {
+    public AvrSyncTimeoutException(String message, Throwable cause) {
         super(message, cause);
     }
 }

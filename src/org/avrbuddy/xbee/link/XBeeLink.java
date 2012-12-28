@@ -124,7 +124,7 @@ public class XBeeLink {
 
         @Override
         public void run() {
-            log.log(Level.SEVERE, "Connection to link port established, resetting remote host");
+            log.info("Connection to link port established, resetting remote host");
             try {
                 tunnel.resetHost();
             } catch (IOException e) {
