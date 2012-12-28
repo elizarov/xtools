@@ -145,10 +145,16 @@ public class AvrProgrammer {
         out.write(CRC_EOP);
     }
 
+    private void checkAddress(AvrMemInfo memInfo, int baseOffset, byte[] bytes) throws IOException {
+        if (baseOffset + bytes.length > memInfo.getMemSize())
+            throw new IOException(String.format("End address %X is out of range %X", baseOffset + bytes.length, memInfo.getMemSize()));
+    }
+
     public int read(AvrMemType memType, int baseOffset, byte[] bytes) throws IOException {
+        AvrMemInfo memInfo = part.getMemInfo(memType);
+        checkAddress(memInfo, baseOffset, bytes);
         log.info(String.format("Reading %d bytes from %s", bytes.length, memType));
         long time = System.currentTimeMillis();
-        AvrMemInfo memInfo = part.getMemInfo(memType);
         int blockSize = memInfo.getReadBlockSize();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
@@ -173,9 +179,10 @@ public class AvrProgrammer {
     }
 
     public void write(AvrMemType memType, int baseOffset, byte[] bytes) throws IOException {
+        AvrMemInfo memInfo = part.getMemInfo(memType);
+        checkAddress(memInfo, baseOffset, bytes);
         log.info(String.format("Writing %d bytes from %s", bytes.length, memType));
         long time = System.currentTimeMillis();
-        AvrMemInfo memInfo = part.getMemInfo(memType);
         int blockSize = memInfo.getWriteBlockSize();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
