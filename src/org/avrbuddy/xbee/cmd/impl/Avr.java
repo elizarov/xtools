@@ -48,8 +48,10 @@ public class Avr extends Command {
 
     @Override
     public String getMoreHelp() {
-        return "Where <memop> is <memtype>:<memcmd>:<filename>[:<format>] and\n" +
-            "  <memtype> is 'f' or 'e'; <memcmd> is 'r', 'w', or 'v'; and the only supported <format> in 'i'.";
+        return "Where <memop> is <memtype>:<memcmd>:<filename>[:<format>]\n" +
+            "  <memtype> is 'f' for flash or 'e' for eeprom;\n" +
+            "  <memcmd> is 'r' for read, 'w' for write, or 'v' for verify;\n" +
+            "  <format> is 'i' (Index HEX is the only supported format).";
     }
 
     @Override
