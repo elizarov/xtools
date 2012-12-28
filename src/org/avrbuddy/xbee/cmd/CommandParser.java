@@ -17,6 +17,7 @@
 
 package org.avrbuddy.xbee.cmd;
 
+import org.avrbuddy.util.WrongFormatException;
 import org.avrbuddy.xbee.cmd.impl.*;
 
 /**
@@ -45,7 +46,7 @@ public class CommandParser {
         CommandDestination destination = CommandDestination.parse(s[0]);
         if (destination != null) {
             if (s.length < 2)
-                throw new IllegalArgumentException("Command name is missing");
+                throw new WrongFormatException("Command name is missing");
             s = s[1].split("\\s", 2);
         }
         String name = s[0];
@@ -59,7 +60,7 @@ public class CommandParser {
                 return cmd;
             }
         }
-        throw new IllegalArgumentException("Invalid command name '" + name + "'");
+        throw new WrongFormatException("Invalid command name '" + name + "'");
     }
 }
 

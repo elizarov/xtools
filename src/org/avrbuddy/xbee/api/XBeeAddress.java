@@ -18,6 +18,7 @@
 package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.hex.HexUtil;
+import org.avrbuddy.util.WrongFormatException;
 
 import java.util.Arrays;
 
@@ -53,7 +54,7 @@ public class XBeeAddress implements Comparable<XBeeAddress> {
         if (s.equals(COORDINATOR_STRING))
              return COORDINATOR;
         if (!s.startsWith(S_PREFIX) || !s.endsWith(S_SUFFIX))
-            throw new IllegalArgumentException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
+            throw new WrongFormatException("Address must be enclosed in " + S_PREFIX + "..." + S_SUFFIX);
         s = s.substring(S_PREFIX.length(), s.length() - S_SUFFIX.length());
         if (s.equals(BROADCAST_STRING))
             return BROADCAST;
@@ -89,9 +90,9 @@ public class XBeeAddress implements Comparable<XBeeAddress> {
             address[i++] = HexUtil.parseByte(s.charAt(p++), s.charAt(p++));
         }
         if (p < s.length())
-            throw new IllegalArgumentException("Extra characters in address string [" + s + "]");
+            throw new WrongFormatException("Extra characters in address string [" + s + "]");
         if (i < 8)
-            throw new IllegalArgumentException("Address string is too short. At least 8 hex bytes are expected [" + s + "]");
+            throw new WrongFormatException("Address string is too short. At least 8 hex bytes are expected [" + s + "]");
     }
 
     public byte[] getAddressBytes() {

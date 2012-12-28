@@ -18,6 +18,7 @@
 package org.avrbuddy.xbee.cmd.impl;
 
 import org.avrbuddy.hex.HexUtil;
+import org.avrbuddy.util.WrongFormatException;
 import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.api.XBeeConnection;
 import org.avrbuddy.xbee.api.XBeeTxFrame;
@@ -50,7 +51,7 @@ public class Send extends Command {
     public void validate(CommandContext ctx) {
         super.validate(ctx);
         if (arg == null)
-            throw new IllegalArgumentException(name + ": text is missing");
+            throw new WrongFormatException(name + ": text is missing");
     }
 
     @Override

@@ -21,6 +21,7 @@ import org.avrbuddy.conn.Connection;
 import org.avrbuddy.conn.ConnectionOptions;
 import org.avrbuddy.conn.ConsoleConnection;
 import org.avrbuddy.conn.SerialConnection;
+import org.avrbuddy.util.WrongFormatException;
 
 import java.io.IOException;
 
@@ -43,7 +44,7 @@ public abstract class CommandConnection {
             try {
                 options = new ConnectionOptions(Integer.parseInt(baudStr));
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Baud is expected as an argument, but '" + baudStr + "' is found");
+                throw new WrongFormatException("Baud is expected as an argument, but '" + baudStr + "' is found");
             }
         }
         return new Serial(port, options);

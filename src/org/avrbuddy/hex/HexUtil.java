@@ -17,6 +17,8 @@
 
 package org.avrbuddy.hex;
 
+import org.avrbuddy.util.WrongFormatException;
+
 import java.io.ByteArrayOutputStream;
 
 /**
@@ -42,7 +44,7 @@ public class HexUtil {
     public static int parseNibble(char c) {
         int x = HEX_STRING.indexOf(Character.toUpperCase(c));
         if (x < 0)
-            throw new IllegalArgumentException("Invalid hex char: " + c);
+            throw new WrongFormatException("Invalid hex char: " + c);
         return x;
     }
 
@@ -127,7 +129,7 @@ public class HexUtil {
             char ch = s.charAt(p++);
             if (ch == '\\') {
                 if (p >= s.length())
-                    throw new IllegalArgumentException("Missing char after backslash");
+                    throw new WrongFormatException("Missing char after backslash");
                 ch  = s.charAt(p++);
                 if (ch == 'r')
                     out.write(0x0d);
@@ -135,13 +137,13 @@ public class HexUtil {
                     out.write(0x0a);
                 else {
                     if (p >= s.length())
-                        throw new IllegalArgumentException("Missing second char after backslash");
+                        throw new WrongFormatException("Missing second char after backslash");
                     out.write((parseNibble(ch) << 4) | parseNibble(s.charAt(p++)));
                 }
             } else if (ch >= 0x20 && ch < 0x7f)
                 out.write(ch);
             else
-                throw new IllegalArgumentException("Invalid data character: " + ch + "(code " + Integer.toHexString(ch) + ")");
+                throw new WrongFormatException("Invalid data character: " + ch + "(code " + Integer.toHexString(ch) + ")");
         }
         return out.toByteArray();
     }

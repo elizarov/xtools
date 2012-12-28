@@ -18,6 +18,9 @@
 package org.avrbuddy.util;
 
 /**
+ * This exception is throw to indicate that user-entered string has wrong format.
+ * This exception is a signal to show help to the end user.
+ *
  * @author Roman Elizarov
  */
 public class WrongFormatException extends IllegalArgumentException {

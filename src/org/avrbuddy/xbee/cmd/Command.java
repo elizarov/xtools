@@ -18,6 +18,7 @@
 package org.avrbuddy.xbee.cmd;
 
 import org.avrbuddy.log.Log;
+import org.avrbuddy.util.WrongFormatException;
 import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeVisitor;
 
@@ -84,7 +85,7 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
         try {
             validate(ctx);
             result = invoke(ctx);
-        } catch (IllegalArgumentException e) {
+        } catch (WrongFormatException e) {
             log.log(Level.WARNING, name, e);
             return false;
         } catch (Exception e) {
@@ -98,11 +99,11 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
 
     public void validate(CommandContext ctx) {
         if (getOptions().contains(Option.DEST_REQUIRED) && destination == null)
-            throw new IllegalArgumentException("Destination node is required");
+            throw new WrongFormatException("Destination node is required");
         if (destination != null && !getOptions().contains(Option.DEST))
-            throw new IllegalArgumentException("Does not support destination");
+            throw new WrongFormatException("Does not support destination");
         if (arg != null && !getOptions().contains(Option.ARG))
-            throw new IllegalArgumentException("Does not expect arguments");
+            throw new WrongFormatException("Does not expect arguments");
     }
 
     protected abstract String invoke(CommandContext ctx) throws IOException;
