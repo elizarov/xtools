@@ -80,4 +80,9 @@ public class AvrOperation {
                 break;
         }
     }
+
+    @Override
+    public String toString() {
+        return memType + " " + memCmd;
+    }
 }

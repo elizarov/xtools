@@ -60,6 +60,6 @@ public class Avr extends Command {
             operation.execute(pgm);
         pgm.quit();
         pgm.close();
-        return OK;
+        return (operation != null ?  operation + " " : "") + OK;
     }
 }
