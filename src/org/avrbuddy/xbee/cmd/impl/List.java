@@ -26,7 +26,7 @@ import org.avrbuddy.xbee.cmd.CommandContext;
 public class List extends Command {
     @Override
     public String getCommandDescription() {
-        return "list discovered nodes";
+        return "Lists discovered nodes.";
     }
 
     @Override

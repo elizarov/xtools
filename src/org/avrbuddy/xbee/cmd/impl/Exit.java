@@ -28,7 +28,7 @@ import java.io.IOException;
 public class Exit extends Command {
     @Override
     public String getCommandDescription() {
-        return "exit the process";
+        return "Exits the process.";
     }
 
     @Override

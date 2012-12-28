@@ -34,7 +34,7 @@ public class Reset extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "reset node with D3";
+        return "Resets remote node with D3.";
     }
 
     @Override

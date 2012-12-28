@@ -42,7 +42,7 @@ public class Dest extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "change destination node with DH,DL (target is local by default)";
+        return "Changes destination node with DH,DL (target is local by default).";
     }
 
     @Override

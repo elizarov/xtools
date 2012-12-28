@@ -17,12 +17,14 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
+import org.avrbuddy.util.FmtUtil;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.link.XBeeLink;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumSet;
 
 /**
@@ -38,12 +40,24 @@ public class Link extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "link remote node input/output to a specified connection (to console by default)";
+        return "Links remote node input/output to a specified connection (to console by default).";
     }
 
     @Override
     public String getParameterDescription() {
         return "[<conn>]";
+    }
+
+    @Override
+    public String getMoreHelp() {
+        return getConnHelpString("Link to");
+    }
+
+    public static String getConnHelpString(String op) {
+        ArrayList<String[]> table = new ArrayList<String[]>();
+        FmtUtil.line(table, "<node>", FmtUtil.SEP, op + " other remote node.");
+        FmtUtil.line(table, "<port> [<baud>]", FmtUtil.SEP, op + " serial port.");
+        return "Where <conn> is one of:\n" + FmtUtil.formatTable(table);
     }
 
     @Override

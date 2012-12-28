@@ -35,7 +35,7 @@ public class Discover extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "discover node (all nodes by default)";
+        return "Discovers node (all nodes by default).";
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
+import org.avrbuddy.util.FmtUtil;
 import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
@@ -25,12 +26,12 @@ import org.avrbuddy.xbee.cmd.CommandParser;
 import org.avrbuddy.xbee.discover.XBeeNode;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 
 /**
  * @author Roman Elizarov
  */
 public class Help extends Command {
-    private static final String SEP = "-";
     private static final String HELP_COMMAND = "?";
 
     public Help() {
@@ -38,12 +39,22 @@ public class Help extends Command {
     }
 
     public static void showHelp() {
-        new Help().show();
+        new Help().showAllCommands();
+    }
+
+    @Override
+    public EnumSet<Option> getOptions() {
+        return EnumSet.of(Option.ARG);
     }
 
     @Override
     public String getCommandDescription() {
-        return "print this help";
+        return "Prints this help.";
+    }
+
+    @Override
+    public String getParameterDescription() {
+        return "[<topic>]";
     }
 
     @Override
@@ -53,65 +64,58 @@ public class Help extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) {
-        show();
+        if (arg != null)
+            showTopic(arg);
+        else
+            showAllCommands();
         return null;
     }
 
-    private void show() {
+    private void showTopic(String topic) {
+        Command cmd = CommandParser.parseCommand(topic);
+        info(cmd.getName() + ": " + cmd.getCommandDescription());
+        info("Use: " + cmd.getDestinationDescription() + " " + cmd.getHelpName() + " " + cmd.getParameterDescription());
+        String moreHelp = cmd.getMoreHelp();
+        if (moreHelp != null)
+            info(moreHelp);
+    }
+
+    private void showAllCommands() {
         ArrayList<String[]> table = new ArrayList<String[]>();
 
         info("Available commands:");
         for (Command prototype : CommandParser.PROTOTYPES) {
-            table.add(str(
+            FmtUtil.line(table,
                     prototype.getDestinationDescription(),
                     prototype.getHelpName(),
                     prototype.getParameterDescription(),
-                    SEP,
-                    prototype.getCommandDescription()
-            ));
+                    FmtUtil.SEP,
+                    prototype.getCommandDescription() +
+                            (prototype.getMoreHelp() != null ?
+                                    "\nType '" + HELP_COMMAND + " " + prototype.getName() + "' for more details." : "")
+            );
         }
-        printTable(table);
-
-        info("Where <conn> is one of:");
-        table.clear();
-        table.add(str("<node>", SEP, "link to other remote node"));
-        table.add(str("<port> [<baud>]", SEP, "link to serial port"));
         printTable(table);
 
         info("Where <node> is one of:");
         table.clear();
-        table.add(str("'" + CommandDestination.LOCAL_STRING + "'", SEP, "local node"));
-        table.add(str("'" + CommandDestination.BROADCAST + "'", SEP, "broadcast"));
-        table.add(str("'" + XBeeAddress.COORDINATOR_STRING + "'", SEP, "coordinator node"));
-        table.add(str("'" + XBeeNode.NODE_ID_PREFIX + "'<node-id>", SEP,
-                "a given node id (discovers by node id)"));
-        table.add(str("'['<hex>']'", SEP,
-                "a given serial number (8 bytes) and optional local address (2 bytes) in hex"));
+        FmtUtil.line(table, "'" + CommandDestination.LOCAL_STRING + "'", FmtUtil.SEP, "local node;");
+        FmtUtil.line(table, "'" + CommandDestination.BROADCAST + "'", FmtUtil.SEP, "broadcast;");
+        FmtUtil.line(table, "'" + XBeeAddress.COORDINATOR_STRING + "'", FmtUtil.SEP, "coordinator node;");
+        FmtUtil.line(table, "'" + XBeeNode.NODE_ID_PREFIX + "'<node-id>", FmtUtil.SEP,
+                "a given node id (discovers by node id);");
+        FmtUtil.line(table, "'['<hex>']'", FmtUtil.SEP,
+                "a given serial number (8 bytes) and optional local address (2 bytes) in hex.");
         printTable(table);
-
-        info("Where <memop> is <memtype>:<memcmd>:<filename>[:<format>] and");
-        info("  <memtype> is 'f' or 'e'; <memcmd> is 'r', 'w', or 'v'; and the only supported <format> in 'i'");
-    }
-
-    private static String[] str(String... s) {
-        return s;
     }
 
     private void printTable(ArrayList<String[]> table) {
-        int m = table.get(0).length;
-        int[] width = new int[m];
-        for (String[] row : table)
-            for (int j = 0; j < m; j++)
-                width[j] = Math.max(width[j], row[j].length());
-        StringBuilder sb = new StringBuilder(" ");
-        for (int j = 0; j < m; j++)
-            sb.append(" %-").append(width[j]).append("s");
-        String format = sb.toString();
-        for (String[] row : table)
-            info(String.format(format, (Object[]) row));
+        info(FmtUtil.formatTable(table));
     }
 
     private void info(String msg) {
-        log.info(msg);
+        String[] ss = msg.split("\n");
+        for (String s : ss)
+            log.info(s);
     }
 }

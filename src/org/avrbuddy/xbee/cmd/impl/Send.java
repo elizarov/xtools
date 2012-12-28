@@ -43,7 +43,7 @@ public class Send extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "send text to node (broadcast by default)";
+        return "Sends text to node (broadcast by default).";
     }
 
     @Override

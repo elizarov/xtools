@@ -40,7 +40,7 @@ public class Comment extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "use to comment a line (does nothing)";
+        return "Used to comment a line (does nothing).";
     }
 
     @Override

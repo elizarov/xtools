@@ -44,7 +44,12 @@ public class Unlink extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "unlink remote connection (all connections to console by default)";
+        return "Unlinks remote connection (all connections to console by default).";
+    }
+
+    @Override
+    public String getMoreHelp() {
+        return Link.getConnHelpString("Unlink from");
     }
 
     @Override

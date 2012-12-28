@@ -31,7 +31,7 @@ import java.util.logging.Logger;
  * @author Roman Elizarov
  */
 public abstract class Command implements XBeeNodeVisitor, Cloneable {
-    public enum Option {DEST, DEST_REQUIRED, ARG }
+    public enum Option {DEST, DEST_REQUIRED, ARG}
 
     public static final String OK = "OK";
     public static final String FAILED = "FAILED";
@@ -73,6 +73,10 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
     }
 
     public abstract String getCommandDescription();
+
+    public String getMoreHelp() {
+        return null;
+    }
 
     // returns true if command executed (successfully or not), false is user needs help
     public final boolean execute(CommandContext ctx) {

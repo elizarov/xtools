@@ -52,7 +52,7 @@ public class AtCommand extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "send any AT command (node is local by default)";
+        return "Sends any AT command (node is local by default).";
     }
 
     @Override

@@ -38,12 +38,18 @@ public class Avr extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "performs specified operation with Arduino ARV bootloader";
+        return "Performs specified operation with Arduino AVR bootloader.";
     }
 
     @Override
     public String getParameterDescription() {
         return "[<memop>]";
+    }
+
+    @Override
+    public String getMoreHelp() {
+        return "Where <memop> is <memtype>:<memcmd>:<filename>[:<format>] and\n" +
+            "  <memtype> is 'f' or 'e'; <memcmd> is 'r', 'w', or 'v'; and the only supported <format> in 'i'.";
     }
 
     @Override
