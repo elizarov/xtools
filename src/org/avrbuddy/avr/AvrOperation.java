@@ -61,6 +61,7 @@ public class AvrOperation {
                 readBuf = new byte[length];
                 int len = pgm.read(memType, 0, readBuf);
                 HexFile.write(file, 0, readBuf, len);
+                break;
             case WRITE:
             case VERIFY:
                 HexFile hf = HexFile.read(file);
