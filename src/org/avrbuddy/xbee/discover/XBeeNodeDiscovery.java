@@ -151,10 +151,10 @@ public class XBeeNodeDiscovery {
     // timeout=0 to use min possible timeout
     private int discoverRemoteNode(String id, XBeeNodeVisitor visitor, long timeout) throws IOException {
         log.fine("Discover remote " + (id == null ? "nodes" : "node " + id));
-        byte discoveryTimeout = (byte) Math.max(MIN_DISCOVERY_TIMEOUT,
+        long discoveryTimeout = Math.max(MIN_DISCOVERY_TIMEOUT,
                 Math.min(MAX_DISCOVERY_TIMEOUT, timeout / DISCOVERY_TIMEOUT_UNIT));
         XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT, conn.sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("NT").setData(discoveryTimeout)));
+                XBeeAtFrame.newBuilder().setAtCommand("NT").setData((byte)discoveryTimeout)));
         int status = conn.getStatus(responses);
         if (status != XBeeAtResponseFrame.STATUS_OK) {
             log.log(Level.SEVERE, "Failed to set discovery timeout: " + conn.fmtStatus(status));
