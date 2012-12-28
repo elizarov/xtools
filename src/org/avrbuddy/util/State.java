@@ -38,14 +38,17 @@ public class State {
         return sync.clear(state);
     }
 
-    public void await(int state, long timeout) {
-        if (timeout == 0)
+    // return 'true' if condition met, 'false' if timedout
+    public boolean await(int state, long timeout) {
+        if (timeout == 0) {
             sync.acquireShared(state);
-        else
+            return true;
+        } else
             try {
-                sync.tryAcquireSharedNanos(state, TimeUnit.MILLISECONDS.toNanos(timeout));
+                return sync.tryAcquireSharedNanos(state, TimeUnit.MILLISECONDS.toNanos(timeout));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                return false;
             }
     }
 

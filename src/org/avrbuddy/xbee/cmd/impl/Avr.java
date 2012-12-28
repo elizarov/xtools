@@ -17,6 +17,8 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
+import org.avrbuddy.avr.AvrMemCmd;
+import org.avrbuddy.avr.AvrMemType;
 import org.avrbuddy.avr.AvrOperation;
 import org.avrbuddy.avr.AvrProgrammer;
 import org.avrbuddy.xbee.cmd.Command;
@@ -49,9 +51,19 @@ public class Avr extends Command {
     @Override
     public String getMoreHelp() {
         return "Where <memop> is <memtype>:<memcmd>:<filename>[:<format>]\n" +
-            "  <memtype> is 'f' for flash or 'e' for eeprom;\n" +
-            "  <memcmd> is 'r' for read, 'w' for write, or 'v' for verify;\n" +
-            "  <format> is 'i' (Index HEX is the only supported format).";
+            "  <memtype> is one of " + list(AvrMemType.values()) + ";\n" +
+            "  <memcmd>  is one of " + list(AvrMemCmd.values()) + ";\n" +
+            "  <format>  is 'i' (Index HEX is the only supported format).";
+    }
+
+    private String list(Object[] values) {
+        StringBuilder sb = new StringBuilder();
+        for (Object value : values) {
+            if (sb.length() > 0)
+                sb.append(", ");
+            sb.append(value);
+        }
+        return sb.toString();
     }
 
     @Override
@@ -63,7 +75,7 @@ public class Avr extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        AvrProgrammer pgm = AvrProgrammer.connect(ctx.conn.openTunnel(destination.resolveAddress(ctx)));
+        AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(destination.resolveAddress(ctx)));
         if (operation != null)
             operation.execute(pgm);
         pgm.quit();

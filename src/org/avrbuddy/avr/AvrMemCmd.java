@@ -19,33 +19,26 @@ package org.avrbuddy.avr;
 
 import org.avrbuddy.util.WrongFormatException;
 
+import java.util.Locale;
+
 /**
  * @author Roman Elizarov
  */
 public enum AvrMemCmd {
-    READ('R'),
-    WRITE('W'),
-    VERIFY('V');
+    READ, WRITE, VERIFY;
 
     public static AvrMemCmd parse(String s) throws WrongFormatException {
-        for (AvrMemCmd cmd : values())
-            if (s.equalsIgnoreCase(cmd.codeStr))
+        for (AvrMemCmd cmd : values()) {
+            String name = cmd.name();
+            if (s.length() > 0 && s.length() <= name.length() && s.equalsIgnoreCase(name.substring(0, s.length())))
                 return cmd;
+        }
         throw new WrongFormatException("Unrecognized memory command '" + s + "'");
     }
 
-    // -------------------------- instance --------------------------
-
-    private final char code;
-    private final String codeStr;
-
-    private AvrMemCmd(char code) {
-        this.code = code;
-        codeStr = String.valueOf(code);
+    @Override
+    public String toString() {
+        String name = name().toLowerCase(Locale.US);
+        return name.substring(0, 1) + "[" + name.substring(1) + "]";
     }
-
-    public char code() {
-        return code;
-    }
-
 }

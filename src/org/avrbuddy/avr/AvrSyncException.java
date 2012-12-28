@@ -26,4 +26,8 @@ public class AvrSyncException extends IOException {
     public AvrSyncException(String message) {
         super(message);
     }
+
+    public AvrSyncException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

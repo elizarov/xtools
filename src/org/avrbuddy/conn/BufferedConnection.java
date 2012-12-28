@@ -19,10 +19,7 @@ package org.avrbuddy.conn;
 
 import org.avrbuddy.util.State;
 
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 
 /**
  * @author Roman Elizarov
@@ -100,7 +97,8 @@ public abstract class BufferedConnection extends Connection {
             while (true) {
                 if (state.is(CLOSED))
                     throw new EOFException("Connection is closed");
-                state.await(DATA_AVAILABLE | CLOSED | END_OF_INPUT, timeout);
+                if (!state.await(DATA_AVAILABLE | CLOSED | END_OF_INPUT, timeout))
+                    throw new InterruptedIOException("Timeout");
                 synchronized (buffer) {
                     if (readIndex == writeIndex) {
                         state.clear(DATA_AVAILABLE);

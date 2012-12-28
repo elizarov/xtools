@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.util.Locale;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -33,12 +34,12 @@ import java.util.logging.Logger;
  */
 public class AvrProgrammer {
     private static final Logger log = Log.getLogger(AvrProgrammer.class);
-    public static final byte UNINITALIZED = (byte) 0xff;
 
-    private final Connection conn;
-    private final AvrPart part;
+    private static final byte UNINITIALIZED = (byte) 0xff;
 
     private static final long READ_TIMEOUT = 500;
+    private static final int MAX_ATTEMPTS = 10;
+
     private static final int SIGNATURE_LEN = 3;
 
     private static final byte STK_OK            = 0x10;
@@ -51,27 +52,42 @@ public class AvrProgrammer {
     private static final byte STK_READ_SIGN     = 0x75; // 'u'
     private static final byte STK_QUIT          = (byte) 'Q';
 
-    public static AvrProgrammer connect(Connection conn) throws IOException {
+    public static AvrProgrammer open(Connection conn) throws IOException {
         conn.setReadTimeout(READ_TIMEOUT);
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            AvrProgrammer pgm;
+        for (int attempt = 0;; attempt++) {
+            // connect limits number of reties with exception
+            attempt = connect(conn, attempt);
+            // read signature
+            byte[] signature;
             try {
-                pgm = openAttempt(conn);
+                signature = signature(conn);
             } catch (AvrSyncException e) {
-                System.err.println(e.getMessage());
-                continue; // retry
-            } catch (IOException e) {
-                e.printStackTrace();
-                break; // failed
+                log.log(Level.WARNING, String.format("[%d] Cannot get AVR part signature", attempt + 1), e);
+                continue;
             }
-            // success
-            log.info("Connected to AVR bootloader for " + pgm.getPart());
-            return pgm;
+            for (AvrPart part : AvrPart.values()) {
+                if (part.hasSignature(signature)) {
+                    log.info("Connected to AVR bootloader for " + part);
+                    return new AvrProgrammer(conn, part);
+                }
+            }
+            throw new IOException("Unrecognized AVR part with signature " + HexUtil.formatBytes(signature));
         }
-        throw new IOException("Cannot connect to AVR bootloader");
     }
 
-    private static AvrProgrammer openAttempt(Connection conn) throws IOException {
+    private static int connect(Connection conn, int attempt) throws IOException {
+        for (; attempt < MAX_ATTEMPTS; attempt++) {
+            try {
+                connectAttempt(conn);
+                return attempt; // success
+            } catch (AvrSyncException e) {
+                log.log(Level.WARNING, String.format("[%d] Cannot connect to AVR bootloader", attempt + 1), e);
+            }
+        }
+        throw new IOException(String.format("Cannot connect to AVR bootloader after %d attempts", MAX_ATTEMPTS));
+    }
+
+    private static void connectAttempt(Connection conn) throws IOException {
         conn.resetHost();
         try {
             Thread.sleep(250);
@@ -80,12 +96,6 @@ public class AvrProgrammer {
         }
         conn.drainInput();
         sync(conn);
-        byte[] signature = signature(conn);
-        for (AvrPart part : AvrPart.values()) {
-            if (part.hasSignature(signature))
-                return new AvrProgrammer(conn, part);
-        }
-        throw new IOException("Unknown AVR signature " + HexUtil.formatBytes(signature, 0, 3));
     }
 
     private static void sync(Connection conn) throws IOException {
@@ -102,24 +112,27 @@ public class AvrProgrammer {
 
     private static void waitInSyncOk(Connection conn, byte[] buf, int ofs, int len) throws IOException {
         InputStream in = conn.getInput();
-        int b = in.read();
-        if (b != STK_INSYNC)
-            throw new AvrSyncException(String.format("Expected INSYNC (%02X) from AVR bootloader, got %02X", STK_INSYNC, b));
-        while (len > 0) {
-            int read = in.read(buf, ofs, len);
-            if (read < 0)
-                throw new AvrSyncException("Connection closed while reading from AVR bootloader");
-            ofs += read;
-            len -= read;
+        try {
+            int b = in.read();
+            if (b != STK_INSYNC)
+                throw new AvrSyncException(String.format("Expected INSYNC (%02X) from AVR bootloader, got %02X", STK_INSYNC, b));
+            while (len > 0) {
+                int read = in.read(buf, ofs, len);
+                if (read < 0)
+                    throw new AvrSyncException("Connection closed while reading from AVR bootloader");
+                ofs += read;
+                len -= read;
+            }
+            b = in.read();
+            if (b != STK_OK)
+                throw new AvrSyncException(String.format("Expected OK (%02X) from AVR bootloader, got %02X", STK_OK, b));
+        } catch (InterruptedIOException e) {
+            throw new AvrSyncException("Read timed out while waiting for sync from AVR bootloader", e);
         }
-        b = in.read();
-        if (b != STK_OK)
-            throw new AvrSyncException(String.format("Expected OK (%02X) from AVR bootloader, got %02X", STK_OK, b));
     }
 
     private static byte[] signature(Connection conn) throws IOException {
         OutputStream out = conn.getOutput();
-        InputStream in = conn.getInput();
         out.write(STK_READ_SIGN);
         out.write(CRC_EOP);
         out.flush();
@@ -128,7 +141,14 @@ public class AvrProgrammer {
         return signature;
     }
 
-    public AvrProgrammer(Connection conn, AvrPart part) {
+    // -------------------------- instance --------------------------
+
+    private final Connection conn;
+    private final AvrPart part;
+
+    private int attempt;
+
+    private AvrProgrammer(Connection conn, AvrPart part) {
         this.conn = conn;
         this.part = part;
     }
@@ -150,12 +170,16 @@ public class AvrProgrammer {
             throw new IOException(String.format("End address %X is out of range %X", baseOffset + bytes.length, memInfo.getMemSize()));
     }
 
+    private void reconnect() throws IOException {
+        attempt = connect(conn, attempt);
+    }
+
     public int read(AvrMemType memType, int baseOffset, byte[] bytes) throws IOException {
         AvrMemInfo memInfo = part.getMemInfo(memType);
         checkAddress(memInfo, baseOffset, bytes);
-        log.info(String.format("Reading %d bytes from %s", bytes.length, memType));
-        long time = System.currentTimeMillis();
         int blockSize = memInfo.getReadBlockSize();
+        log.info(String.format("Reading %d bytes from %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
+        long time = System.currentTimeMillis();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
             int length = Math.min(blockSize, bytes.length - i);
@@ -166,14 +190,21 @@ public class AvrProgrammer {
             out.write(memType.code());
             out.write(CRC_EOP);
             out.flush();
-            waitInSyncOk(conn); // loadAddress
-            waitInSyncOk(conn, bytes, i, length); // read
+            try {
+                waitInSyncOk(conn); // loadAddress
+                waitInSyncOk(conn, bytes, i, length); // read
+                attempt = 0; // reset retries counter after successful operation
+            } catch (AvrSyncException e) {
+                log.log(Level.WARNING, String.format("[%d] Cannot read block at %X", attempt + 1, baseOffset + i), e);
+                reconnect();
+                i -= blockSize; // retry block
+            }
         }
         time = System.currentTimeMillis() - time;
         log.info(String.format(Locale.US, "Done reading in %.2f sec", time / 1000.0));
         // determine initialized length
         int len = bytes.length;
-        while (len > 0 && bytes[len - 1] == UNINITALIZED)
+        while (len > 0 && bytes[len - 1] == UNINITIALIZED)
             len--;
         return len;
     }
@@ -181,9 +212,9 @@ public class AvrProgrammer {
     public void write(AvrMemType memType, int baseOffset, byte[] bytes) throws IOException {
         AvrMemInfo memInfo = part.getMemInfo(memType);
         checkAddress(memInfo, baseOffset, bytes);
-        log.info(String.format("Writing %d bytes from %s", bytes.length, memType));
-        long time = System.currentTimeMillis();
         int blockSize = memInfo.getWriteBlockSize();
+        log.info(String.format("Writing %d bytes from %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
+        long time = System.currentTimeMillis();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
             int length = Math.min(blockSize, bytes.length - i);
@@ -195,8 +226,15 @@ public class AvrProgrammer {
             out.write(bytes, i, length);
             out.write(CRC_EOP);
             out.flush();
-            waitInSyncOk(conn); // loadAddress
-            waitInSyncOk(conn); // write
+            try {
+                waitInSyncOk(conn); // loadAddress
+                waitInSyncOk(conn); // write
+                attempt = 0; // reset retries counter after successful operation
+            } catch (AvrSyncException e) {
+                log.log(Level.WARNING, String.format("[%d] Cannot write block at %X", attempt + 1, baseOffset + i), e);
+                reconnect();
+                i -= blockSize; // retry block
+            }
         }
         time = System.currentTimeMillis() - time;
         log.info(String.format(Locale.US, "Done writing in %.2f sec", time / 1000.0));

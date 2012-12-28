@@ -17,7 +17,6 @@
 
 package org.avrbuddy.xbee.api;
 
-import org.avrbuddy.avr.AvrProgrammer;
 import org.avrbuddy.conn.Connection;
 import org.avrbuddy.conn.SerialConnection;
 import org.avrbuddy.hex.HexUtil;
@@ -192,16 +191,6 @@ public class XBeeConnection {
         // don't wait for the second message, because reset was already initiated by the first one
         sendFramesWithId(XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0}));
         return status;
-    }
-
-    public AvrProgrammer openArvProgrammer(XBeeAddress destination) throws IOException {
-        Connection tunnel = openTunnel(destination);
-        try {
-            return AvrProgrammer.connect(tunnel);
-        } catch (IOException e) {
-            tunnel.close();
-            throw e;
-        }
     }
 
     // -------------- PRIVATE CONSTRUCTOR AND HELPER METHODS --------------

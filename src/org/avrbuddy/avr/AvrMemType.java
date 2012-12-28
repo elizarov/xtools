@@ -19,31 +19,30 @@ package org.avrbuddy.avr;
 
 import org.avrbuddy.util.WrongFormatException;
 
+import java.util.Locale;
+
 /**
  * @author Roman Elizarov
  */
 public enum AvrMemType {
-    FLASH('F'),
-    EEPROM('E');
+    FLASH, EEPROM;
 
     public static AvrMemType parse(String s) throws WrongFormatException {
-        for (AvrMemType type : values())
-            if (s.equalsIgnoreCase(type.codeStr))
+        for (AvrMemType type : values()) {
+            String name = type.name();
+            if (s.length() > 0 && s.length() <= name.length() && s.equalsIgnoreCase(name.substring(0, s.length())))
                 return type;
+        }
         throw new WrongFormatException("Unrecognized memory type '" + s + "'");
     }
 
-    // -------------------------- instance --------------------------
-
-    private final char code;
-    private final String codeStr;
-
-    private AvrMemType(char code) {
-        this.code = code;
-        codeStr = String.valueOf(code);
+    @Override
+    public String toString() {
+        String name = name().toLowerCase(Locale.US);
+        return name.substring(0, 1) + "[" + name.substring(1) + "]";
     }
 
     public char code() {
-        return code;
+        return name().charAt(0);
     }
 }

@@ -83,6 +83,6 @@ public class AvrOperation {
 
     @Override
     public String toString() {
-        return memType + " " + memCmd;
+        return memType.name() + " " + memCmd.name();
     }
 }
