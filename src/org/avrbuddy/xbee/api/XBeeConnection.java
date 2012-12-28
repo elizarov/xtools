@@ -184,6 +184,7 @@ public class XBeeConnection {
 
     // destination == null to reset local node via local AT commands
     public int resetRemoteHost(XBeeAddress destination) throws IOException {
+        log.info("Resetting remote host " + destination);
         // do the actual reset (D3 -> output, low)
         int status = getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
                 XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}))));

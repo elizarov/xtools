@@ -75,6 +75,7 @@ public class XBeeNodeDiscovery {
         XBeeNode node = getByNodeId(id);
         if (node != null)
             return node;
+        log.info("Discovering remote node " + XBeeNode.NODE_ID_PREFIX + id);
         int status = -1;
         for (int attempt = 0; attempt < attempts; attempt++) {
             status = discoverRemoteNode(id, null, 0);
