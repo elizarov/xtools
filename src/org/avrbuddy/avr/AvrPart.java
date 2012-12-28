@@ -26,7 +26,9 @@ public enum AvrPart {
     ATMEGA168A (0x1e9406, new AvrMemInfo(16 * 1024, 128, 256, 2), new AvrMemInfo(512, 4, 256, 1)),
     ATMEGA168PA(0x1e940b, new AvrMemInfo(16 * 1024, 128, 256, 2), new AvrMemInfo(512, 4, 256, 1)),
     ATMEGA328  (0x1e9514, new AvrMemInfo(32 * 1024, 128, 256, 2), new AvrMemInfo(1024, 4, 256, 1)),
-    ATMEGA328P (0x1e950f, new AvrMemInfo(32 * 1024, 128, 256, 2), new AvrMemInfo(1024, 4, 256, 1));
+    ATMEGA328P (0x1e950f, new AvrMemInfo(32 * 1024, 128, 256, 2), new AvrMemInfo(1024, 4, 256, 1)),
+    ATMEGA1280 (0x1e9703, new AvrMemInfo(128 * 1024, 256, 256, 2), new AvrMemInfo(4096, 8, 256, 1)),
+    ATMEGA2560 (0x1e9801, new AvrMemInfo(256 * 1024, 256, 256, 2), new AvrMemInfo(4096, 8, 256, 1));
 
     public final int signature;
     public final EnumMap<AvrMemType, AvrMemInfo> memInfo = new EnumMap<AvrMemType, AvrMemInfo>(AvrMemType.class);
