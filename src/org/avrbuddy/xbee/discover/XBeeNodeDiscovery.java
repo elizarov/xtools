@@ -60,21 +60,28 @@ public class XBeeNodeDiscovery {
 
     public XBeeNode getOrDiscoverLocalNode() throws IOException {
         XBeeNode node = getLocalNode();
-        if (node != null)
+        if (node != null) {
+            log.info("Using local address " + node);
             return node;
+        }
+        log.info("Retrieving local node address");
         try {
-            return checkStatus(discoverDestinationNode(null, null), getLocalNode());
+            node = checkStatus(discoverDestinationNode(null, null), getLocalNode());
         } catch (IOException e) {
             throw new IOException("Failed to discover local node: " + e.getMessage(), e);
         }
+        log.info("Retrieved local node " + node);
+        return node;
     }
 
     public XBeeNode getOrDiscoverByNodeId(String id, int attempts) throws IOException {
         if (id == null)
             throw new NullPointerException();
         XBeeNode node = getByNodeId(id);
-        if (node != null)
+        if (node != null) {
+            log.info("Using remote address " + node);
             return node;
+        }
         log.info("Discovering remote node " + XBeeNode.NODE_ID_PREFIX + id);
         int status = -1;
         for (int attempt = 0; attempt < attempts; attempt++) {
@@ -83,11 +90,13 @@ public class XBeeNodeDiscovery {
                 break;
         }
         try {
-            return checkStatus(status, getByNodeId(id));
+            node = checkStatus(status, getByNodeId(id));
         } catch (IOException e) {
             throw new IOException("Failed to discover node " + XBeeNode.NODE_ID_PREFIX + id +
                     " after " + XBeeNodeDiscovery.DISCOVER_ATTEMPTS + " attempts: " + e.getMessage(), e);
         }
+        log.info("Discovered remote node " + node);
+        return node;
     }
 
     public XBeeNode getOrDiscoverNodeByAddress(XBeeAddress address) throws IOException {

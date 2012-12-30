@@ -171,6 +171,7 @@ public class XBeeConnection {
 
     // destination == null to change destination of local node via local AT commands
     public int changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
+        log.info(String.format("Changing destination for %s to %s", destination, target));
         return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination)
                         .setAtCommand("DH")
