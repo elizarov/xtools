@@ -23,7 +23,6 @@ import org.avrbuddy.util.State;
 import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.cmd.CommandConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
-import org.avrbuddy.xbee.discover.XBeeNode;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -71,12 +70,7 @@ public class XBeeLink {
         if (state.is(CLOSED))
             return;
 
-        XBeeNode localNode = ctx.discovery.getOrDiscoverLocalNode();
-        if (localNode == null) {
-            log.log(Level.SEVERE, "Failed to resolve local node");
-            return;
-        }
-        ctx.conn.changeRemoteDestination(remoteAddress, localNode.getAddress());
+        ctx.conn.changeRemoteDestination(remoteAddress, ctx.discovery.getOrDiscoverLocalNode().getAddress());
 
         link = linkConnection.openConnection(ctx);
         tunnel = ctx.conn.openTunnel(remoteAddress);

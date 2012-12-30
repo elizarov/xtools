@@ -21,6 +21,7 @@ import org.avrbuddy.avr.AvrMemCmd;
 import org.avrbuddy.avr.AvrMemType;
 import org.avrbuddy.avr.AvrOperation;
 import org.avrbuddy.avr.AvrProgrammer;
+import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 
@@ -75,7 +76,9 @@ public class Avr extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(destination.resolveAddress(ctx)));
+        XBeeAddress remoteAddress = destination.resolveAddress(ctx);
+        ctx.conn.changeRemoteDestination(remoteAddress, ctx.discovery.getOrDiscoverLocalNode().getAddress());
+        AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(remoteAddress));
         if (operation != null)
             operation.execute(pgm);
         pgm.quit();

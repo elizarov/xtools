@@ -58,6 +58,7 @@ public class XBeeNodeDiscovery {
                 discoverRemoteNode(null, visitor, 0));
     }
 
+    // never returns null (will throw IOException)
     public XBeeNode getOrDiscoverLocalNode() throws IOException {
         XBeeNode node = getLocalNode();
         if (node != null) {
