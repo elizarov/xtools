@@ -62,7 +62,7 @@ class XBeeTunnel extends BufferedConnection {
 
     private class Listener implements XBeeFrameListener<XBeeRxFrame> {
         public void frameReceived(XBeeRxFrame frame) {
-            if (frame.getSource().equals(destination))
+            if (destination.equals(XBeeAddress.BROADCAST) || frame.getSource().equals(destination))
                 in.write(frame.getData());
         }
 

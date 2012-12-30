@@ -70,7 +70,8 @@ public class XBeeLink {
         if (state.is(CLOSED))
             return;
 
-        ctx.conn.changeRemoteDestination(remoteAddress, ctx.discovery.getOrDiscoverLocalNode().getAddress());
+        if (!remoteAddress.equals(XBeeAddress.BROADCAST))
+            ctx.conn.changeRemoteDestination(remoteAddress, ctx.discovery.getOrDiscoverLocalNode().getAddress());
 
         link = linkConnection.openConnection(ctx);
         tunnel = ctx.conn.openTunnel(remoteAddress);

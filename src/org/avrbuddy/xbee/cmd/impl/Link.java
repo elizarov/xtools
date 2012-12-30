@@ -18,6 +18,7 @@
 package org.avrbuddy.xbee.cmd.impl;
 
 import org.avrbuddy.util.FmtUtil;
+import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandConnection;
 import org.avrbuddy.xbee.cmd.CommandContext;
@@ -35,7 +36,7 @@ public class Link extends Command {
 
     @Override
     public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DEST, Option.DEST_REQUIRED, Option.ARG);
+        return EnumSet.of(Option.DEST, Option.ARG);
     }
 
     @Override
@@ -50,7 +51,9 @@ public class Link extends Command {
 
     @Override
     public String getMoreHelp() {
-        return getConnHelpString("Link to");
+        return
+            "When <node> is not specified, then input from all nodes is linked to <conn> and transmissions are broadcast.\n" +
+            getConnHelpString("Link to");
     }
 
     public static String getConnHelpString(String op) {
@@ -68,7 +71,8 @@ public class Link extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        XBeeLink link = new XBeeLink(ctx, destination.resolveAddress(ctx), conn);
+        XBeeAddress address = destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx);
+        XBeeLink link = new XBeeLink(ctx, address, conn);
         try {
             link.start();
         } catch (IOException e) {
