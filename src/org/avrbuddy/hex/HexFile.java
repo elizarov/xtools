@@ -17,12 +17,17 @@
 
 package org.avrbuddy.hex;
 
+import org.avrbuddy.log.Log;
+
 import java.io.*;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
  */
 public class HexFile {
+    private static final Logger log = Log.getLogger(HexFile.class);
+
     private static final String LINE_PREFIX = ":";
     private static final int TYPE_DATA = 0;
     private static final int TYPE_EOF = 1;
@@ -32,6 +37,7 @@ public class HexFile {
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
     public static HexFile read(File file) throws IOException {
+        log.info("Reading file " + file);
         HexFile result = new HexFile();
         BufferedReader in = new BufferedReader(new FileReader(file));
         try {
@@ -54,6 +60,7 @@ public class HexFile {
     }
 
     public static void write(File file, int baseOffset, byte[] bytes, int len) throws IOException {
+        log.info("Writing file " + file);
         PrintWriter out = new PrintWriter(file);
         byte[] buf = new byte[5 + WRITE_BLOCK_SIZE];
         try {
