@@ -265,7 +265,7 @@ public class AvrProgrammer {
         AvrMemInfo memInfo = part.getMemInfo(memType);
         checkAddress(memInfo, baseOffset, bytes);
         int blockSize = memInfo.getWriteBlockSize();
-        log.info(String.format("Writing %d bytes from %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
+        log.info(String.format("Writing %d bytes to %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
         long time = System.currentTimeMillis();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
