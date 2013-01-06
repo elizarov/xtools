@@ -203,7 +203,7 @@ public class AvrProgrammer {
 
     private void checkAddress(AvrMemInfo memInfo, int baseOffset, byte[] bytes) throws IOException {
         if (baseOffset + bytes.length > memInfo.getMemSize())
-            throw new IOException(String.format("End address %X is out of range %X", baseOffset + bytes.length, memInfo.getMemSize()));
+            throw new IOException(String.format("End address 0x%X is out of range 0x%X", baseOffset + bytes.length, memInfo.getMemSize()));
     }
 
     private void reconnect() throws IOException {
@@ -234,7 +234,7 @@ public class AvrProgrammer {
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
             int length = Math.min(blockSize, bytes.length - i);
-            log.fine(String.format("Sending STK_LOAD_ADDRESS %X and STK_READ_PAGE %d", baseOffset + i, length));
+            log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_READ_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
             out.write(STK_READ_PAGE);
             out.write(length >> 8);
@@ -247,7 +247,7 @@ public class AvrProgrammer {
                 waitInSyncOk(conn, bytes, i, length, false); // read
                 attempt = 0; // reset retries counter after successful operation
             } catch (AvrSyncException e) {
-                log.log(Level.WARNING, String.format("[%d] Cannot read block at %X", attempt + 1, baseOffset + i), e);
+                log.log(Level.WARNING, String.format("[%d] Cannot read block at 0x%X", attempt + 1, baseOffset + i), e);
                 reconnect();
                 i -= blockSize; // retry block
             }
@@ -270,7 +270,7 @@ public class AvrProgrammer {
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
             int length = Math.min(blockSize, bytes.length - i);
-            log.fine(String.format("Sending STK_LOAD_ADDRESS %X and STK_PROG_PAGE %d", baseOffset + i, length));
+            log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_PROG_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
             out.write(STK_PROG_PAGE);
             out.write(length >> 8);
@@ -284,7 +284,7 @@ public class AvrProgrammer {
                 waitInSyncOk(conn); // write
                 attempt = 0; // reset retries counter after successful operation
             } catch (AvrSyncException e) {
-                log.log(Level.WARNING, String.format("[%d] Cannot write block at %X", attempt + 1, baseOffset + i), e);
+                log.log(Level.WARNING, String.format("[%d] Cannot write block at 0x%X", attempt + 1, baseOffset + i), e);
                 reconnect();
                 i -= blockSize; // retry block
             }
