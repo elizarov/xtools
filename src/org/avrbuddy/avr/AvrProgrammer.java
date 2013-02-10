@@ -17,17 +17,14 @@
 
 package org.avrbuddy.avr;
 
+import java.io.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.avrbuddy.conn.Connection;
 import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.log.Log;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InterruptedIOException;
-import java.io.OutputStream;
-import java.util.Locale;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.avrbuddy.log.Progress;
 
 /**
  * @author Roman Elizarov
@@ -229,10 +226,11 @@ public class AvrProgrammer {
         checkAddress(memInfo, baseOffset, bytes);
         int blockSize = memInfo.getReadBlockSize();
         log.info(String.format("Reading %d bytes from %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
-        long time = System.currentTimeMillis();
+	    Progress progress = Progress.start("Reading", bytes.length);
         checkSync();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
+	        progress.update(i);
             int length = Math.min(blockSize, bytes.length - i);
             log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_READ_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
@@ -252,8 +250,7 @@ public class AvrProgrammer {
                 i -= blockSize; // retry block
             }
         }
-        time = System.currentTimeMillis() - time;
-        log.info(String.format(Locale.US, "Done reading in %.2f sec", time / 1000.0));
+        progress.done();
         // determine initialized length
         int len = bytes.length;
         while (len > 0 && bytes[len - 1] == UNINITIALIZED)
@@ -266,9 +263,10 @@ public class AvrProgrammer {
         checkAddress(memInfo, baseOffset, bytes);
         int blockSize = memInfo.getWriteBlockSize();
         log.info(String.format("Writing %d bytes to %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
-        long time = System.currentTimeMillis();
-        OutputStream out = conn.getOutput();
+	    Progress progress = Progress.start("Writing", bytes.length);
+	    OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
+	        progress.update(i);
             int length = Math.min(blockSize, bytes.length - i);
             log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_PROG_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
@@ -289,8 +287,7 @@ public class AvrProgrammer {
                 i -= blockSize; // retry block
             }
         }
-        time = System.currentTimeMillis() - time;
-        log.info(String.format(Locale.US, "Done writing in %.2f sec", time / 1000.0));
+        progress.done();
     }
 
     public void quit() throws IOException {

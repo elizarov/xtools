@@ -18,6 +18,7 @@
 package org.avrbuddy.log;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Locale;
 import java.util.logging.*;
 
@@ -25,6 +26,8 @@ import java.util.logging.*;
  * @author Roman Elizarov
  */
 public class Log {
+	static final PrintStream OUT = System.err;
+
     private static final int LOG_FILE_LIMIT = 10 * 1024 * 1024; // 10MB
 
     private Log() {}
@@ -39,10 +42,7 @@ public class Log {
         Logger main = Logger.getLogger(mainClass.getName());
 
         // Console
-        ConsoleHandler console = new ConsoleHandler();
-        console.setFormatter(new ConsoleFormatter());
-        console.setLevel(System.getProperty("verbose") != null ? Level.FINE : Level.INFO);
-        root.addHandler(console);
+        root.addHandler(new LogConsoleHandler());
 
         // Log file
         String logFile = mainClass.getSimpleName().toLowerCase(Locale.US) + ".log";
