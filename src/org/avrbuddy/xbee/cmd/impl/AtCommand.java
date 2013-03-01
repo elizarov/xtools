@@ -62,12 +62,13 @@ public class AtCommand extends Command {
                             destination == null ? null : destination.resolveAddress(ctx))
                         .setAtCommand(name)
                         .setData(arg == null ? new byte[0] : XBeeUtil.parseAtValue(name, arg))));
-        String result = "";
+        XBeeUtil.checkStatus(responses);
+        StringBuilder result = new StringBuilder(OK);
         if (responses[0] != null) {
             byte[] data = responses[0].getData();
             if (data.length > 0)
-                result = " " + XBeeUtil.formatAtValue(name, data);
+                result.append(" ").append(XBeeUtil.formatAtValue(name, data));
         }
-        return ctx.conn.fmtStatus(responses) + result;
+        return result.toString();
     }
 }

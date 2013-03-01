@@ -52,10 +52,12 @@ public class XBeeNodeDiscovery {
         this.conn = conn;
     }
 
-    public int discoverAllNodes(XBeeNodeVisitor visitor) throws IOException {
-        return Math.max(
+    public void discoverAllNodes(XBeeNodeVisitor visitor) throws IOException {
+        int status = Math.max(
                 discoverDestinationNode(null, visitor),
                 discoverRemoteNode(null, visitor, 0));
+        if (status != XBeeAtResponseFrame.STATUS_OK)
+            throw new XBeeException(XBeeUtil.formatStatus(status));
     }
 
     // never returns null (will throw IOException)
@@ -136,9 +138,9 @@ public class XBeeNodeDiscovery {
                 XBeeAtFrame.newBuilder(destination).setAtCommand("SL"),
                 XBeeAtFrame.newBuilder(destination).setAtCommand("MY"),
                 XBeeAtFrame.newBuilder(destination).setAtCommand("NI"));
-        int status = conn.getStatus(responses);
+        int status = XBeeUtil.getStatus(responses);
         if (status != XBeeAtResponseFrame.STATUS_OK) {
-            log.log(Level.SEVERE, "Failed to retrieve " + desc + " information: " + conn.fmtStatus(status));
+            log.log(Level.SEVERE, "Failed to retrieve " + desc + " information: " + XBeeUtil.formatStatus(status));
             return status;
         }
         byte[] localNodeAddressBytes = new byte[10];
@@ -165,9 +167,9 @@ public class XBeeNodeDiscovery {
                 Math.min(MAX_DISCOVERY_TIMEOUT, timeout / DISCOVERY_TIMEOUT_UNIT));
         XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT, conn.sendFramesWithId(
                 XBeeAtFrame.newBuilder().setAtCommand("NT").setData((byte)discoveryTimeout)));
-        int status = conn.getStatus(responses);
+        int status = XBeeUtil.getStatus(responses);
         if (status != XBeeAtResponseFrame.STATUS_OK) {
-            log.log(Level.SEVERE, "Failed to set discovery timeout: " + conn.fmtStatus(status));
+            log.log(Level.SEVERE, "Failed to set discovery timeout: " + XBeeUtil.formatStatus(status));
             return status;
         }
         NodeDiscoveryListener listener = new NodeDiscoveryListener(visitor);
@@ -179,7 +181,7 @@ public class XBeeNodeDiscovery {
                 XBeeConnection.DEFAULT_TIMEOUT + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT, conn.sendFramesWithId(
                         XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
                                 .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
-            status = conn.getStatus(responses);
+            status = XBeeUtil.getStatus(responses);
             if (status != XBeeAtResponseFrame.STATUS_OK)
                 return status;
             // if all nodes are discovered, wait for the end of timeout
@@ -216,7 +218,7 @@ public class XBeeNodeDiscovery {
 
     private XBeeNode checkStatus(int status, XBeeNode result) throws IOException {
         if (status != XBeeAtResponseFrame.STATUS_OK)
-            throw new IOException(conn.fmtStatus(status));
+            throw new IOException(XBeeUtil.formatStatus(status));
         if (result == null)
             throw new IOException("Reason unknown");
         return result;

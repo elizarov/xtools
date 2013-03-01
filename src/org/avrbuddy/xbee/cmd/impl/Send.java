@@ -22,6 +22,7 @@ import org.avrbuddy.util.WrongFormatException;
 import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.api.XBeeConnection;
 import org.avrbuddy.xbee.api.XBeeTxFrame;
+import org.avrbuddy.xbee.api.XBeeUtil;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 
@@ -56,9 +57,10 @@ public class Send extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        return ctx.conn.fmtStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
+        XBeeUtil.checkStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
                 ctx.conn.sendFramesWithId(XBeeTxFrame.newBuilder()
                         .setDestination(destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx))
                         .setData(HexUtil.parseAscii(arg)))));
+        return OK;
     }
 }

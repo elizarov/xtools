@@ -41,11 +41,23 @@ public class XBeeAddress implements Comparable<XBeeAddress> {
     private String string;
 
     public static XBeeAddress valueOf(byte[] data, int offset) {
-        if (data.length - offset >= ADDRESS_LENGTH)
-            for (int i = 0; i < ADDRESS_LENGTH; i++)
-                if (data[i + offset] != BROADCAST.address[i])
-                    return new XBeeAddress(data, offset, null);
-        return BROADCAST;
+        return isBroadcast(data, offset) ? BROADCAST : new XBeeAddress(data, offset, null);
+    }
+
+    public static XBeeAddress valueOf(byte[] highAddressBytes, byte[] lowAddressBytes) {
+        byte[] data = new byte[8];
+        System.arraycopy(highAddressBytes, 0, data, 0, 4);
+        System.arraycopy(lowAddressBytes, 0, data, 4, 4);
+        return valueOf(data, 0);
+    }
+
+    private static boolean isBroadcast(byte[] data, int offset) {
+        if (data.length - offset < 8)
+            return false;
+        for (int i = 0; i < 8; i++)
+            if (data[i + offset] != BROADCAST.address[i])
+                return false;
+        return true;
     }
 
     public static XBeeAddress valueOf(String s) {

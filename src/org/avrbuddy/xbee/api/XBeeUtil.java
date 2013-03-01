@@ -27,6 +27,8 @@ import java.util.Locale;
  * @author Roman Elizarov
  */
 public class XBeeUtil {
+    private static final int STATUS_TIMEOUT = 0x100;
+
     static final byte FRAME_START = 0x7e;
     static final byte ESCAPE = 0x7d;
     static final byte XON = 0x11;
@@ -49,5 +51,40 @@ public class XBeeUtil {
         return ASCII_AT_COMMANDS.contains(atCommand.toUpperCase(Locale.US)) ?
                 HexUtil.parseAscii(value) :
                 HexUtil.parseBytes(value);
+    }
+
+    public static String formatStatus(int status) {
+        switch (status) {
+            case STATUS_TIMEOUT:
+                return "TIMEOUT";
+            case XBeeAtResponseFrame.STATUS_OK:
+                return "OK";
+            case XBeeAtResponseFrame.STATUS_ERROR:
+                return "ERROR";
+            case XBeeAtResponseFrame.STATUS_INVALID_COMMAND:
+                return "INVALID COMMAND";
+            case XBeeAtResponseFrame.STATUS_TX_FAILURE:
+                return "TX FAILURE";
+            case XBeeAtResponseFrame.STATUS_INVALID_PARAMETER:
+                return "INVALID PARAMETER";
+            default:
+                return HexUtil.formatByte((byte) status);
+        }
+    }
+
+    public static int getStatus(XBeeFrameWithId[] responses) {
+        int status = XBeeAtResponseFrame.STATUS_OK;
+        for (XBeeFrameWithId response : responses) {
+            if (response == null)
+                return STATUS_TIMEOUT;
+            status = Math.max(status, response.getStatus() & 0xff);
+        }
+        return status;
+    }
+
+    public static void checkStatus(XBeeFrameWithId[] responses) throws XBeeException {
+        int status = getStatus(responses);
+        if (status != XBeeAtResponseFrame.STATUS_OK)
+            throw new XBeeException(formatStatus(status));
     }
 }

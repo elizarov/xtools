@@ -42,21 +42,25 @@ public class Dest extends Command {
 
     @Override
     public String getCommandDescription() {
-        return "Changes destination node with DH,DL (target is local by default).";
+        return "Queries or changes destination node with DH,DL.";
     }
 
     @Override
     public void validate(CommandContext ctx) {
         super.validate(ctx);
-        target = arg == null ? CommandDestination.LOCAL : CommandDestination.parse(arg);
+        target = arg == null ? null : CommandDestination.parse(arg);
     }
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        int status = ctx.conn.changeRemoteDestination(
-                destination.resolveAddress(ctx),
-                target.resolveAddress(ctx));
-        return ctx.conn.fmtStatus(status);
+        if (target == null)
+            log.info(destination + " " + name + " " +
+                    ctx.conn.queryRemoteDestination(destination.resolveAddress(ctx)));
+        else
+            ctx.conn.changeRemoteDestination(
+                    destination.resolveAddress(ctx),
+                    target.resolveAddress(ctx));
+        return OK;
     }
 }
 

@@ -41,8 +41,8 @@ public class Discover extends Command {
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
         if (destination == null || destination.isBroadcast()) {
-            int status = ctx.discovery.discoverAllNodes(this);
-            return ctx.conn.fmtStatus(status);
+            ctx.discovery.discoverAllNodes(this);
+            return OK;
         } else {
             XBeeNode node = destination.resolveNode(ctx);
             return node == null ? FAILED : OK + " " + node;

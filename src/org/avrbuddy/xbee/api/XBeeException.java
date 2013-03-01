@@ -15,31 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.avrbuddy.xbee.cmd.impl;
-
-import org.avrbuddy.xbee.cmd.Command;
-import org.avrbuddy.xbee.cmd.CommandContext;
+package org.avrbuddy.xbee.api;
 
 import java.io.IOException;
-import java.util.EnumSet;
 
 /**
  * @author Roman Elizarov
  */
-public class Reset extends Command {
-    @Override
-    public EnumSet<Option> getOptions() {
-        return EnumSet.of(Option.DEST, Option.DEST_REQUIRED);
-    }
-
-    @Override
-    public String getCommandDescription() {
-        return "Resets remote node with D3.";
-    }
-
-    @Override
-    protected String invoke(CommandContext ctx) throws IOException {
-        ctx.conn.resetRemoteHost(destination.resolveAddress(ctx));
-        return OK;
+public class XBeeException extends IOException {
+    public XBeeException(String message) {
+        super(message);
     }
 }

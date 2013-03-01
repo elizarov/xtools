@@ -19,7 +19,6 @@ package org.avrbuddy.xbee.api;
 
 import org.avrbuddy.conn.Connection;
 import org.avrbuddy.conn.SerialConnection;
-import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.log.LoggedThread;
 import org.avrbuddy.util.State;
@@ -37,8 +36,6 @@ public class XBeeConnection {
     private static final int CLOSED = 1;
 
     public static final long DEFAULT_TIMEOUT = 3000;
-
-    public static final int STATUS_TIMEOUT = 0x100;
 
     private final SerialConnection serial;
     private final DataInputStream in;
@@ -147,20 +144,10 @@ public class XBeeConnection {
         for (int i = 0; i < builders.length; i++) {
             XBeeFrameWithId[] res = waitResponses(timeout, sendFramesWithId(builders[i]));
             responses[i] = res[0];
-            if (getStatus(res) != XBeeAtResponseFrame.STATUS_OK)
+            if (XBeeUtil.getStatus(res) != XBeeAtResponseFrame.STATUS_OK)
                 break;
         }
         return responses;
-    }
-
-    public int getStatus(XBeeFrameWithId[] responses) {
-        int status = XBeeAtResponseFrame.STATUS_OK;
-        for (XBeeFrameWithId response : responses) {
-            if (response == null)
-                return STATUS_TIMEOUT;
-            status = Math.max(status, response.getStatus() & 0xff);
-        }
-        return status;
     }
 
     // -------------- HIGH-LEVER PUBLIC OPERATION --------------
@@ -170,22 +157,30 @@ public class XBeeConnection {
     }
 
     // destination == null to change destination of local node via local AT commands
-    public int changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
+    public void changeRemoteDestination(XBeeAddress destination, XBeeAddress target) throws IOException {
         log.info(String.format("Changing destination for %s to %s", destination, target));
-        return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+        XBeeUtil.checkStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination)
-                        .setAtCommand("DH")
-                        .setData(target == null ? new byte[0] : target.getHighAddressBytes()),
+                        .setAtCommand("DH").setData(target.getHighAddressBytes()),
                 XBeeAtFrame.newBuilder(destination)
-                        .setAtCommand("DL")
-                        .setData(target == null ? new byte[0] : target.getLowAddressBytes())));
+                        .setAtCommand("DL").setData(target.getLowAddressBytes())));
+    }
+
+    // destination == null to query destination of local node via local AT commands
+    public XBeeAddress queryRemoteDestination(XBeeAddress destination) throws IOException {
+        log.info(String.format("Querying destination for %s", destination));
+        XBeeFrameWithId[] responses = sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+                XBeeAtFrame.newBuilder(destination).setAtCommand("DH"),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("DL"));
+        XBeeUtil.checkStatus(responses);
+        return XBeeAddress.valueOf(responses[0].getData(), responses[1].getData());
     }
 
 
     // destination == null to reset local node via local AT commands
-    public int resetRemoteHost(XBeeAddress destination) throws IOException {
+    public void resetRemoteHost(XBeeAddress destination) throws IOException {
         log.info("Resetting remote host " + destination);
-        return getStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+        XBeeUtil.checkStatus(sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
                 XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{4}),
                 XBeeAtFrame.newBuilder(destination).setAtCommand("D3").setData(new byte[]{0})));
     }
@@ -207,12 +202,12 @@ public class XBeeConnection {
         reader.start();
         // configure API MODE
         log.fine("Configuring API mode " + (byte) 2);
-        if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
                 XBeeAtFrame.newBuilder().setAtCommand("AP").setData((byte) 2)))))
             throw new IOException("No valid XBee device detected. Check that XBee is configured with API firmware and baud rate");
         // enable hardware flow control - RTS & CTS
         log.fine("Configuring RTS and CTS flow control");
-        if (XBeeAtResponseFrame.STATUS_OK != getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
                 XBeeAtFrame.newBuilder().setAtCommand("D6").setData((byte) 1),
                 XBeeAtFrame.newBuilder().setAtCommand("D7").setData((byte) 1)))))
             throw new IOException("Failed to enable RTS and CTS flow control on XBee");
@@ -273,7 +268,7 @@ public class XBeeConnection {
         log.fine("Querying max payload size");
         XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
                 XBeeAtFrame.newBuilder().setAtCommand("NP")));
-        if (getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
+        if (XBeeUtil.getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
             throw new IOException("Cannot determine max payload size for XBee");
         byte[] data = response[0].getData();
         if (data.length != 2)
@@ -288,29 +283,6 @@ public class XBeeConnection {
             Class<?> frameClass = (Class<Object>) listeners[i];
             if (frameClass.isInstance(frame))
                 ((XBeeFrameListener) listeners[i + 1]).frameReceived(frame);
-        }
-    }
-
-    public String fmtStatus(XBeeFrameWithId[] responses) {
-        return fmtStatus(getStatus(responses));
-    }
-
-    public String fmtStatus(int status) {
-        switch (status) {
-            case STATUS_TIMEOUT:
-                return "TIMEOUT";
-            case XBeeAtResponseFrame.STATUS_OK:
-                return "OK";
-            case XBeeAtResponseFrame.STATUS_ERROR:
-                return "ERROR";
-            case XBeeAtResponseFrame.STATUS_INVALID_COMMAND:
-                return "INVALID COMMAND";
-            case XBeeAtResponseFrame.STATUS_TX_FAILURE:
-                return "TX FAILURE";
-            case XBeeAtResponseFrame.STATUS_INVALID_PARAMETER:
-                return "INVALID PARAMETER";
-            default:
-                return HexUtil.formatByte((byte) status);
         }
     }
 
