@@ -77,12 +77,17 @@ public class Avr extends Command {
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
         XBeeAddress remoteAddress = destination.resolveAddress(ctx);
-        ctx.conn.changeRemoteDestination(remoteAddress, ctx.discovery.getOrDiscoverLocalNode().getAddress());
+        XBeeAddress oldDest = ctx.conn.queryRemoteDestination(remoteAddress);
+        XBeeAddress newDest = ctx.discovery.getOrDiscoverLocalNode().getAddress();
+        if (!oldDest.equals(newDest))
+            ctx.conn.changeRemoteDestination(remoteAddress, newDest);
         AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(remoteAddress));
         if (operation != null)
             operation.execute(pgm);
         pgm.quit();
         pgm.close();
-        return (operation != null ?  operation + " " : "") + OK;
+        if (!oldDest.equals(newDest))
+            ctx.conn.changeRemoteDestination(remoteAddress, oldDest);
+        return (operation != null ? operation + " " : "") + OK;
     }
 }

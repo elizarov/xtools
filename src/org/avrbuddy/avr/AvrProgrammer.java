@@ -226,11 +226,11 @@ public class AvrProgrammer {
         checkAddress(memInfo, baseOffset, bytes);
         int blockSize = memInfo.getReadBlockSize();
         log.info(String.format("Reading %d bytes from %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
-	    Progress progress = Progress.start("Reading", bytes.length);
+        Progress progress = Progress.start("Reading", bytes.length);
         checkSync();
         OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
-	        progress.update(i);
+            progress.update(i);
             int length = Math.min(blockSize, bytes.length - i);
             log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_READ_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
@@ -263,10 +263,10 @@ public class AvrProgrammer {
         checkAddress(memInfo, baseOffset, bytes);
         int blockSize = memInfo.getWriteBlockSize();
         log.info(String.format("Writing %d bytes to %s in blocks of %d bytes", bytes.length, memType.name(), blockSize));
-	    Progress progress = Progress.start("Writing", bytes.length);
-	    OutputStream out = conn.getOutput();
+        Progress progress = Progress.start("Writing", bytes.length);
+        OutputStream out = conn.getOutput();
         for (int i = 0; i < bytes.length; i += blockSize) {
-	        progress.update(i);
+            progress.update(i);
             int length = Math.min(blockSize, bytes.length - i);
             log.fine(String.format("Sending STK_LOAD_ADDRESS 0x%X and STK_PROG_PAGE %d", baseOffset + i, length));
             loadAddress((baseOffset + i) / memInfo.getAddrDiv());
@@ -295,6 +295,7 @@ public class AvrProgrammer {
         out.write(STK_QUIT);
         out.write(CRC_EOP);
         out.flush();
+        waitInSyncOk(conn);
     }
 
     public void close() {

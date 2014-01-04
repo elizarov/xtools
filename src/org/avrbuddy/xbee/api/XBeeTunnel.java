@@ -26,7 +26,7 @@ import java.util.Arrays;
  * @author Roman Elizarov
  */
 class XBeeTunnel extends BufferedConnection {
-    private static final int BUFFER_SIZE = 1024;
+    private static final int BUFFER_SIZE = 8192;
 
     private final XBeeConnection conn;
     private final XBeeAddress destination;
