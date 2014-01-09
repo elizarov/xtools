@@ -167,11 +167,14 @@ public class XBeeConnection {
     }
 
     // destination == null to query destination of local node via local AT commands
-    public XBeeAddress queryRemoteDestination(XBeeAddress destination) throws IOException {
-        log.info(String.format("Querying destination for %s", destination));
-        XBeeFrameWithId[] responses = sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
-                XBeeAtFrame.newBuilder(destination).setAtCommand("DH"),
-                XBeeAtFrame.newBuilder(destination).setAtCommand("DL"));
+    public XBeeAddress queryRemoteDestination(XBeeAddress destination, int attempts) throws IOException {
+        XBeeFrameWithId[] responses;
+        do {
+            log.info(String.format("Querying destination for %s", destination));
+            responses = sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
+                    XBeeAtFrame.newBuilder(destination).setAtCommand("DH"),
+                    XBeeAtFrame.newBuilder(destination).setAtCommand("DL"));
+        } while (XBeeUtil.getStatus(responses) != XBeeAtResponseFrame.STATUS_OK && --attempts > 0);
         XBeeUtil.checkStatus(responses);
         return XBeeAddress.valueOf(responses[0].getData(), responses[1].getData());
     }

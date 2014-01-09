@@ -25,6 +25,8 @@ import java.util.Arrays;
  * @author Roman Elizarov
  */
 public class XBeeRxFrame extends XBeeFrame {
+    public static final byte OPTIONS_BROADCAST = 0x02;
+
     XBeeRxFrame(byte[] frame) {
         super(frame);
         if (frame.length < 16)

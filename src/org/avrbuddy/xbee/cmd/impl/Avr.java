@@ -22,11 +22,17 @@ import org.avrbuddy.avr.AvrMemType;
 import org.avrbuddy.avr.AvrOperation;
 import org.avrbuddy.avr.AvrProgrammer;
 import org.avrbuddy.xbee.api.XBeeAddress;
+import org.avrbuddy.xbee.api.XBeeFrameListener;
+import org.avrbuddy.xbee.api.XBeeRxFrame;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 
 import java.io.IOException;
-import java.util.EnumSet;
+import java.io.InterruptedIOException;
+import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.logging.Level;
 
 /**
  * @author Roman Elizarov
@@ -76,18 +82,117 @@ public class Avr extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        XBeeAddress remoteAddress = destination.resolveAddress(ctx);
-        XBeeAddress oldDest = ctx.conn.queryRemoteDestination(remoteAddress);
-        XBeeAddress newDest = ctx.discovery.getOrDiscoverLocalNode().getAddress();
-        if (!oldDest.equals(newDest))
-            ctx.conn.changeRemoteDestination(remoteAddress, newDest);
-        AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(remoteAddress));
-        if (operation != null)
-            operation.execute(pgm);
-        pgm.quit();
-        pgm.close();
-        if (!oldDest.equals(newDest))
-            ctx.conn.changeRemoteDestination(remoteAddress, oldDest);
+        DestTracker destTracker = new DestTracker(ctx);
+        destTracker.start();
+        ctx.conn.addListener(XBeeRxFrame.class, destTracker);
+        try {
+            XBeeAddress remoteAddress = destination.resolveAddress(ctx);
+            destTracker.changeDestAndSave(remoteAddress);
+            AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(remoteAddress));
+            if (operation != null)
+                operation.execute(pgm);
+            pgm.quit();
+            pgm.close();
+        } finally {
+            ctx.conn.removeListener(XBeeRxFrame.class, destTracker);
+            destTracker.stopAndRestore();
+        }
         return (operation != null ? operation + " " : "") + OK;
+    }
+
+    private class DestTracker extends Thread implements XBeeFrameListener<XBeeRxFrame> {
+        private static final int ATTEMPTS = 10;
+
+        private final Map<XBeeAddress, XBeeAddress> oldDestMap = Collections.synchronizedMap(new LinkedHashMap<XBeeAddress, XBeeAddress>());
+        private final BlockingQueue<XBeeAddress> queue = new LinkedBlockingQueue<XBeeAddress>();
+        private final Set<XBeeAddress> inQueue = Collections.synchronizedSet(new HashSet<XBeeAddress>());
+
+        private final CommandContext ctx;
+        private final XBeeAddress newDest;
+
+        public DestTracker(CommandContext ctx) throws IOException {
+            super("DestTracker");
+            this.ctx = ctx;
+            newDest = ctx.discovery.getOrDiscoverLocalNode().getAddress();
+        }
+
+        public void changeDestAndSave(XBeeAddress remoteAddress) throws IOException {
+            XBeeAddress oldDest = ctx.conn.queryRemoteDestination(remoteAddress, ATTEMPTS);
+            if (!oldDest.equals(newDest)) {
+                ctx.conn.changeRemoteDestination(remoteAddress, newDest);
+                oldDestMap.put(remoteAddress, oldDest);
+            }
+        }
+
+        public void stopAndRestore() throws IOException {
+            interrupt();
+            try {
+                join();
+            } catch (InterruptedException e) {
+                throw (InterruptedIOException)(new InterruptedIOException(e.getMessage()).initCause(e));
+            }
+            for (Map.Entry<XBeeAddress, XBeeAddress> entry : oldDestMap.entrySet())
+                ctx.conn.changeRemoteDestination(entry.getKey(), entry.getValue());
+        }
+
+        @Override
+        public void frameReceived(XBeeRxFrame frame) {
+            if ((frame.getOptions() & XBeeRxFrame.OPTIONS_BROADCAST) == 0)
+                return;
+            XBeeAddress remoteAddress = frame.getSource();
+            log.info(String.format("Received broadcast packet from %s", remoteAddress));
+            if (oldDestMap.containsKey(remoteAddress))
+                return;
+            if (inQueue.contains(remoteAddress))
+                return;
+            inQueue.add(remoteAddress);
+            queue.add(remoteAddress);
+        }
+
+        @Override
+        public void connectionClosed() {
+            interrupt();
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (!interrupted()) {
+                    XBeeAddress remoteAddress = queue.take();
+                    process(remoteAddress);
+                    inQueue.remove(remoteAddress);
+                }
+            } catch (InterruptedException e) {
+                // return
+            }
+        }
+
+        void process(XBeeAddress remoteAddress) throws InterruptedException {
+            XBeeAddress oldDest;
+            try {
+                oldDest = ctx.conn.queryRemoteDestination(remoteAddress, ATTEMPTS);
+            } catch (InterruptedIOException e) {
+                throw (InterruptedException)(new InterruptedException().initCause(e));
+            } catch (IOException e) {
+                log.log(Level.WARNING,
+                        String.format("Cannot query destination for broadcast packet source %s", remoteAddress), e);
+                return;
+            }
+            if (!oldDest.equals(XBeeAddress.BROADCAST)) {
+                log.log(Level.WARNING,
+                        String.format("Broadcast packet source at %s is configured " +
+                        "with a destination address of %s", remoteAddress, oldDest));
+                return;
+            }
+            try {
+                ctx.conn.changeRemoteDestination(remoteAddress, newDest);
+                oldDestMap.put(remoteAddress, oldDest);
+            } catch (InterruptedIOException e) {
+                throw (InterruptedException)(new InterruptedException().initCause(e));
+            } catch (IOException e) {
+                log.log(Level.WARNING,
+                        String.format("Cannot change destination for broadcast packet source %s", remoteAddress), e);
+            }
+        }
     }
 }

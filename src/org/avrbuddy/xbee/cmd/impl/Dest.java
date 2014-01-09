@@ -55,7 +55,7 @@ public class Dest extends Command {
     protected String invoke(CommandContext ctx) throws IOException {
         if (target == null)
             log.info(destination + " " + name + " " +
-                    ctx.conn.queryRemoteDestination(destination.resolveAddress(ctx)));
+                    ctx.conn.queryRemoteDestination(destination.resolveAddress(ctx), 1));
         else
             ctx.conn.changeRemoteDestination(
                     destination.resolveAddress(ctx),
