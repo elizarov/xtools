@@ -24,6 +24,8 @@ import org.avrbuddy.log.LoggedThread;
 import org.avrbuddy.util.State;
 
 import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,6 +38,7 @@ public class XBeeConnection {
     private static final int CLOSED = 1;
 
     public static final long DEFAULT_TIMEOUT = 3000;
+    public static final long BROADCAST_TIMEOUT = 1000;
 
     private final SerialConnection serial;
     private final DataInputStream in;
@@ -69,6 +72,9 @@ public class XBeeConnection {
         Object[] listeners = listenerList.getListeners();
         for (int i = 0; i < listeners.length; i += 2)
             ((XBeeFrameListener) listeners[i + 1]).connectionClosed();
+        synchronized (this) {
+            notifyAll();
+        }
     }
 
     public <F> void addListener(Class<F> frameClass, XBeeFrameListener<F> listener) {
@@ -90,59 +96,75 @@ public class XBeeConnection {
         }
     }
 
-    public synchronized XBeeFrameWithId[] sendFramesWithId(XBeeFrameWithId.Builder... builders) throws IOException {
+    public synchronized XBeeFrameWithId[] buildFramesWithId(XBeeFrameWithId.Builder... builders) {
         XBeeFrameWithId[] frames = new XBeeFrameWithId[builders.length];
         for (int i = 0; i < builders.length; i++) {
             frames[i] = buildFrameWithId(builders[i]);
         }
-        sendFrames(frames);
         return frames;
     }
 
-    public XBeeFrameWithId[] waitResponses(long timeout, final XBeeFrameWithId... frames) throws InterruptedIOException {
-        final XBeeFrameWithId[] responses = new XBeeFrameWithId[frames.length];
-        XBeeFrameListener<XBeeFrameWithId> listener = new XBeeFrameListener<XBeeFrameWithId>() {
-            public void frameReceived(XBeeFrameWithId frame) {
-                synchronized (responses) {
-                    int waitCnt = 0;
-                    for (int i = 0; i < frames.length; i++) {
-                        XBeeFrameWithId waitFrame = frames[i];
-                        if (responses[i] == null) {
-                            if (frame.isResponseFor(waitFrame))
-                                responses[i] = frame;
-                            else
-                                waitCnt++;
-                        }
-                    }
-                    if (waitCnt == 0)
-                        responses.notifyAll();
-                }
-            }
+    private Object lock() {
+        return this;
+    }
 
-            @Override
-            public void connectionClosed() {
-                synchronized (responses) {
-                    responses.notifyAll();
-                }
-            }
-        };
-        addListener(XBeeFrameWithId.class, listener);
+    public synchronized <F> void sendFramesAndWaitWithListener(long timeout,
+            Class<F> frameClass, XBeeTerminatingFrameListener<F> listener, XBeeFrame... frames)
+            throws IOException
+    {
+        addListener(frameClass, listener);
         try {
-            synchronized (responses) {
-                responses.wait(timeout);
+            sendFrames(frames);
+            long waitTill = System.currentTimeMillis() + timeout;
+            while (timeout > 0 && !listener.isTerminated()) {
+                wait(timeout);
+                timeout = waitTill - System.currentTimeMillis();
             }
         } catch (InterruptedException e) {
             throw ((InterruptedIOException) new InterruptedIOException().initCause(e));
         } finally {
-            removeListener(XBeeFrameWithId.class, listener);
+            removeListener(frameClass, listener);
         }
+    }
+
+    public synchronized XBeeFrameWithId[] sendFramesWithIdAndWaitResponses(long timeout, final XBeeFrameWithId... frames) throws IOException {
+        final XBeeFrameWithId[] responses = new XBeeFrameWithId[frames.length];
+        XBeeTerminatingFrameListener<XBeeFrameWithId> listener = new XBeeTerminatingFrameListener<XBeeFrameWithId>() {
+            private boolean terminated;
+
+            @Override
+            public boolean isTerminated() {
+                return terminated;
+            }
+
+            public void frameReceived(XBeeFrameWithId frame) {
+                int waitCnt = 0;
+                for (int i = 0; i < frames.length; i++) {
+                    XBeeFrameWithId waitFrame = frames[i];
+                    if (responses[i] == null) {
+                        if (frame.isResponseFor(waitFrame))
+                            responses[i] = frame;
+                        else
+                            waitCnt++;
+                    }
+                }
+                if (waitCnt == 0)
+                    terminated = true;
+            }
+
+            @Override
+            public void connectionClosed() {
+                terminated = true;
+            }
+        };
+        sendFramesAndWaitWithListener(timeout, XBeeFrameWithId.class, listener, frames);
         return responses;
     }
 
     public XBeeFrameWithId[] sendFramesWithIdSeriallyAndWait(long timeout, XBeeFrameWithId.Builder... builders) throws IOException {
         XBeeFrameWithId[] responses = new XBeeFrameWithId[builders.length];
         for (int i = 0; i < builders.length; i++) {
-            XBeeFrameWithId[] res = waitResponses(timeout, sendFramesWithId(builders[i]));
+            XBeeFrameWithId[] res = sendFramesWithIdAndWaitResponses(timeout, buildFramesWithId(builders[i]));
             responses[i] = res[0];
             if (XBeeUtil.getStatus(res) != XBeeAtResponseFrame.STATUS_OK)
                 break;
@@ -167,18 +189,78 @@ public class XBeeConnection {
     }
 
     // destination == null to query destination of local node via local AT commands
-    public XBeeAddress queryRemoteDestination(XBeeAddress destination, int attempts) throws IOException {
-        XBeeFrameWithId[] responses;
-        do {
-            log.info(String.format("Querying destination for %s", destination));
-            responses = sendFramesWithIdSeriallyAndWait(DEFAULT_TIMEOUT,
-                    XBeeAtFrame.newBuilder(destination).setAtCommand("DH"),
-                    XBeeAtFrame.newBuilder(destination).setAtCommand("DL"));
-        } while (XBeeUtil.getStatus(responses) != XBeeAtResponseFrame.STATUS_OK && --attempts > 0);
-        XBeeUtil.checkStatus(responses);
-        return XBeeAddress.valueOf(responses[0].getData(), responses[1].getData());
+    public int queryRemoteDestination(XBeeAddress destination, final XBeeTerminatingDestinationVisitor visitor)
+            throws IOException
+    {
+        log.info(String.format("Querying destination for %s", destination));
+        final boolean broadcast = XBeeAddress.BROADCAST.equals(destination);
+        final XBeeFrameWithId[] frames = buildFramesWithId(
+                XBeeAtFrame.newBuilder(destination).setAtCommand("DH"),
+                XBeeAtFrame.newBuilder(destination).setAtCommand("DL"));
+        final Map<XBeeAddress, XBeeAtResponseFrame[]> responses = new HashMap<XBeeAddress, XBeeAtResponseFrame[]>();
+        responses.put(destination, new XBeeAtResponseFrame[2]);
+        XBeeTerminatingFrameListener<XBeeAtResponseFrame> frameListener = new XBeeTerminatingFrameListener<XBeeAtResponseFrame>() {
+            private boolean terminated;
+
+            @Override
+            public boolean isTerminated() {
+                return terminated || visitor.isTerminated();
+            }
+
+            @Override
+            public void frameReceived(XBeeAtResponseFrame frame) {
+                for (int i = 0; i < frames.length; i++)
+                    if (frame.isResponseFor(frames[i])) {
+                        XBeeAtResponseFrame[] r = responses.get(frame.getSource());
+                        if (r == null)
+                            responses.put(frame.getSource(), r = new XBeeAtResponseFrame[2]);
+                        r[i] = frame;
+                        int status = XBeeUtil.getStatus(r);
+                        if (status == XBeeAtResponseFrame.STATUS_OK)
+                            visitor.visitNodeDestination(frame.getSource(), getDestFromResponses(r));
+                        if (status != XBeeUtil.STATUS_TIMEOUT && !broadcast)
+                            terminated = true;
+                    }
+            }
+
+            @Override
+            public void connectionClosed() {
+                 terminated = true;
+            }
+        };
+        // send frames serially
+        for (XBeeFrameWithId frame : frames) {
+            sendFramesAndWaitWithListener(broadcast ? BROADCAST_TIMEOUT : DEFAULT_TIMEOUT,
+                    XBeeAtResponseFrame.class, frameListener, frame);
+        }
+        return broadcast ? XBeeAtResponseFrame.STATUS_OK : XBeeUtil.getStatus(responses.get(destination));
     }
 
+    // destination == null to query destination of local node via local AT commands
+    public XBeeAddress queryRemoteDestination(XBeeAddress destination, int attempts) throws IOException {
+        final XBeeAddress[] result = new XBeeAddress[1];
+        int status;
+        do {
+            status = queryRemoteDestination(destination, new XBeeTerminatingDestinationVisitor() {
+                @Override
+                public boolean isTerminated() {
+                    return result[0] != null;
+                }
+
+                @Override
+                public void visitNodeDestination(XBeeAddress node, XBeeAddress nodeDestination) {
+                    result[0] = nodeDestination;
+                }
+            });
+        } while (result[0] != null && --attempts > 0);
+        if (status != XBeeAtResponseFrame.STATUS_OK)
+            throw new XBeeException(XBeeUtil.formatStatus(status));
+        return result[0];
+    }
+
+    private XBeeAddress getDestFromResponses(XBeeFrameWithId[] responses) {
+        return XBeeAddress.valueOf(responses[0].getData(), responses[1].getData());
+    }
 
     // destination == null to reset local node via local AT commands
     public void resetRemoteHost(XBeeAddress destination) throws IOException {
@@ -205,14 +287,16 @@ public class XBeeConnection {
         reader.start();
         // configure API MODE
         log.fine("Configuring API mode " + (byte) 2);
-        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("AP").setData((byte) 2)))))
+        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(
+                sendFramesWithIdAndWaitResponses(DEFAULT_TIMEOUT, buildFramesWithId(
+                        XBeeAtFrame.newBuilder().setAtCommand("AP").setData((byte) 2)))))
             throw new IOException("No valid XBee device detected. Check that XBee is configured with API firmware and baud rate");
         // enable hardware flow control - RTS & CTS
         log.fine("Configuring RTS and CTS flow control");
-        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("D6").setData((byte) 1),
-                XBeeAtFrame.newBuilder().setAtCommand("D7").setData((byte) 1)))))
+        if (XBeeAtResponseFrame.STATUS_OK != XBeeUtil.getStatus(
+                sendFramesWithIdAndWaitResponses(DEFAULT_TIMEOUT, buildFramesWithId(
+                        XBeeAtFrame.newBuilder().setAtCommand("D6").setData((byte) 1),
+                        XBeeAtFrame.newBuilder().setAtCommand("D7").setData((byte) 1)))))
             throw new IOException("Failed to enable RTS and CTS flow control on XBee");
         // enable outbound flow control
         serial.setHardwareFlowControl(SerialConnection.FLOW_CONTROL_IN | SerialConnection.FLOW_CONTROL_OUT);
@@ -269,7 +353,7 @@ public class XBeeConnection {
         if (maxPayloadSize != 0)
             return maxPayloadSize;
         log.fine("Querying max payload size");
-        XBeeFrameWithId[] response = waitResponses(DEFAULT_TIMEOUT, sendFramesWithId(
+        XBeeFrameWithId[] response = sendFramesWithIdAndWaitResponses(DEFAULT_TIMEOUT, buildFramesWithId(
                 XBeeAtFrame.newBuilder().setAtCommand("NP")));
         if (XBeeUtil.getStatus(response) != XBeeAtResponseFrame.STATUS_OK)
             throw new IOException("Cannot determine max payload size for XBee");
@@ -286,6 +370,9 @@ public class XBeeConnection {
             Class<?> frameClass = (Class<Object>) listeners[i];
             if (frameClass.isInstance(frame))
                 ((XBeeFrameListener) listeners[i + 1]).frameReceived(frame);
+        }
+        synchronized (this) {
+            notifyAll();
         }
     }
 

@@ -165,8 +165,9 @@ public class XBeeNodeDiscovery {
         log.fine("Discover remote " + (id == null ? "nodes" : "node " + id));
         long discoveryTimeout = Math.max(MIN_DISCOVERY_TIMEOUT,
                 Math.min(MAX_DISCOVERY_TIMEOUT, timeout / DISCOVERY_TIMEOUT_UNIT));
-        XBeeFrameWithId[] responses = conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT, conn.sendFramesWithId(
-                XBeeAtFrame.newBuilder().setAtCommand("NT").setData((byte)discoveryTimeout)));
+        XBeeFrameWithId[] responses =
+                conn.sendFramesWithIdAndWaitResponses(XBeeConnection.DEFAULT_TIMEOUT, conn.buildFramesWithId(
+                        XBeeAtFrame.newBuilder().setAtCommand("NT").setData((byte) discoveryTimeout)));
         int status = XBeeUtil.getStatus(responses);
         if (status != XBeeAtResponseFrame.STATUS_OK) {
             log.log(Level.SEVERE, "Failed to set discovery timeout: " + XBeeUtil.formatStatus(status));
@@ -177,10 +178,10 @@ public class XBeeNodeDiscovery {
         try {
             long tillTime = System.currentTimeMillis() + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT;
             // wait for first response
-            responses = conn.waitResponses(
-                XBeeConnection.DEFAULT_TIMEOUT + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT, conn.sendFramesWithId(
-                        XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
-                                .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
+            responses = conn.sendFramesWithIdAndWaitResponses(
+                    XBeeConnection.DEFAULT_TIMEOUT + discoveryTimeout * DISCOVERY_TIMEOUT_UNIT, conn.buildFramesWithId(
+                    XBeeAtFrame.newBuilder().setAtCommand(XBeeNodeDiscoveryResponseFrame.NODE_DISCOVERY_COMMAND)
+                            .setData(id == null ? new byte[0] : HexUtil.parseAscii(id))));
             status = XBeeUtil.getStatus(responses);
             if (status != XBeeAtResponseFrame.STATUS_OK)
                 return status;

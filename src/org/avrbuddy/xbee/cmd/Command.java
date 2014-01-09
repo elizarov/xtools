@@ -19,6 +19,8 @@ package org.avrbuddy.xbee.cmd;
 
 import org.avrbuddy.log.Log;
 import org.avrbuddy.util.WrongFormatException;
+import org.avrbuddy.xbee.api.XBeeAddress;
+import org.avrbuddy.xbee.api.XBeeTerminatingDestinationVisitor;
 import org.avrbuddy.xbee.discover.XBeeNode;
 import org.avrbuddy.xbee.discover.XBeeNodeVisitor;
 
@@ -31,7 +33,7 @@ import java.util.logging.Logger;
 /**
  * @author Roman Elizarov
  */
-public abstract class Command implements XBeeNodeVisitor, Cloneable {
+public abstract class Command implements XBeeNodeVisitor, XBeeTerminatingDestinationVisitor, Cloneable {
     public enum Option {DEST, DEST_REQUIRED, ARG}
 
     public static final String OK = "OK";
@@ -109,8 +111,18 @@ public abstract class Command implements XBeeNodeVisitor, Cloneable {
     protected abstract String invoke(CommandContext ctx) throws IOException;
 
     @Override
+    public boolean isTerminated() {
+        return false;
+    }
+
+    @Override
     public void visitNode(XBeeNode node) {
         log.info(name + ": " + node);
+    }
+
+    @Override
+    public void visitNodeDestination(XBeeAddress node, XBeeAddress nodeDestination) {
+        log.info(name + ": " + node + " " + nodeDestination);
     }
 
     public CommandDestination getDestination() {

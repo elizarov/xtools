@@ -27,7 +27,7 @@ import java.util.Locale;
  * @author Roman Elizarov
  */
 public class XBeeUtil {
-    private static final int STATUS_TIMEOUT = 0x100;
+    public static final int STATUS_TIMEOUT = 0x100;
 
     static final byte FRAME_START = 0x7e;
     static final byte ESCAPE = 0x7d;

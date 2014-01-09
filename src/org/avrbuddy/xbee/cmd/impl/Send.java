@@ -57,8 +57,8 @@ public class Send extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        XBeeUtil.checkStatus(ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
-                ctx.conn.sendFramesWithId(XBeeTxFrame.newBuilder()
+        XBeeUtil.checkStatus(ctx.conn.sendFramesWithIdAndWaitResponses(XBeeConnection.DEFAULT_TIMEOUT,
+                ctx.conn.buildFramesWithId(XBeeTxFrame.newBuilder()
                         .setDestination(destination == null ? XBeeAddress.BROADCAST : destination.resolveAddress(ctx))
                         .setData(HexUtil.parseAscii(arg)))));
         return OK;

@@ -17,10 +17,7 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
-import org.avrbuddy.xbee.api.XBeeAtFrame;
-import org.avrbuddy.xbee.api.XBeeConnection;
-import org.avrbuddy.xbee.api.XBeeFrameWithId;
-import org.avrbuddy.xbee.api.XBeeUtil;
+import org.avrbuddy.xbee.api.*;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 
@@ -56,19 +53,50 @@ public class AtCommand extends Command {
     }
 
     @Override
-    protected String invoke(CommandContext ctx) throws IOException {
-        XBeeFrameWithId[] responses = ctx.conn.waitResponses(XBeeConnection.DEFAULT_TIMEOUT,
-                ctx.conn.sendFramesWithId(XBeeAtFrame.newBuilder(
-                            destination == null ? null : destination.resolveAddress(ctx))
-                        .setAtCommand(name)
-                        .setData(arg == null ? new byte[0] : XBeeUtil.parseAtValue(name, arg))));
-        XBeeUtil.checkStatus(responses);
-        StringBuilder result = new StringBuilder(OK);
-        if (responses[0] != null) {
-            byte[] data = responses[0].getData();
-            if (data.length > 0)
-                result.append(" ").append(XBeeUtil.formatAtValue(name, data));
+    protected String invoke(final CommandContext ctx) throws IOException {
+        XBeeAddress destAddress = destination == null ? null : destination.resolveAddress(ctx);
+        final XBeeFrameWithId[] frames = ctx.conn.buildFramesWithId(
+                XBeeAtFrame.newBuilder(destAddress)
+                    .setAtCommand(name)
+                    .setData(arg == null ? new byte[0] : XBeeUtil.parseAtValue(name, arg)));
+        if (XBeeAddress.BROADCAST.equals(destAddress)) {
+            // special logic for broadcast
+            XBeeTerminatingFrameListener<XBeeAtResponseFrame> listener = new XBeeTerminatingFrameListener<XBeeAtResponseFrame>() {
+                private boolean terminated;
+
+                @Override
+                public boolean isTerminated() {
+                    return terminated;
+                }
+
+                @Override
+                public void frameReceived(XBeeAtResponseFrame frame) {
+                    if (frame.isResponseFor(frames[0]))
+                        log.info(frame.getSource() + " " + resultString(frame));
+                }
+
+                @Override
+                public void connectionClosed() {
+                    terminated = true;
+                }
+            };
+            ctx.conn.sendFramesAndWaitWithListener(XBeeConnection.BROADCAST_TIMEOUT, XBeeAtResponseFrame.class, listener, frames);
+            return OK;
+        } else {
+            // unicast
+            XBeeFrameWithId[] responses = ctx.conn.sendFramesWithIdAndWaitResponses(XBeeConnection.DEFAULT_TIMEOUT, frames);
+            XBeeUtil.checkStatus(responses);
+            return resultString(responses[0]);
         }
+    }
+
+    private String resultString(XBeeFrameWithId response) {
+        if (response == null)
+            return XBeeUtil.formatStatus(XBeeUtil.STATUS_TIMEOUT);
+        StringBuilder result = new StringBuilder(XBeeUtil.formatStatus(response.getStatus()));
+        byte[] data = response.getData();
+        if (data.length > 0)
+            result.append(" ").append(XBeeUtil.formatAtValue(name, data));
         return result.toString();
     }
 }

@@ -17,6 +17,8 @@
 
 package org.avrbuddy.xbee.cmd.impl;
 
+import org.avrbuddy.xbee.api.XBeeAddress;
+import org.avrbuddy.xbee.api.XBeeUtil;
 import org.avrbuddy.xbee.cmd.Command;
 import org.avrbuddy.xbee.cmd.CommandContext;
 import org.avrbuddy.xbee.cmd.CommandDestination;
@@ -53,13 +55,14 @@ public class Dest extends Command {
 
     @Override
     protected String invoke(CommandContext ctx) throws IOException {
-        if (target == null)
-            log.info(destination + " " + name + " " +
-                    ctx.conn.queryRemoteDestination(destination.resolveAddress(ctx), 1));
-        else
-            ctx.conn.changeRemoteDestination(
-                    destination.resolveAddress(ctx),
-                    target.resolveAddress(ctx));
+        XBeeAddress destAddress = destination.resolveAddress(ctx);
+        if (target == null) {
+            // query
+            return XBeeUtil.formatStatus(ctx.conn.queryRemoteDestination(destAddress, this));
+        } else {
+            // change
+            ctx.conn.changeRemoteDestination(destAddress, target.resolveAddress(ctx));
+        }
         return OK;
     }
 }
