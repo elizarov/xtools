@@ -131,8 +131,8 @@ public abstract class BufferedConnection extends Connection {
             synchronized (buffer) {
                 if (state.is(END_OF_INPUT))
                     throw new IllegalStateException("Should not have more data after end of stream");
-                for (int i = off; i < off + len; i++) {
-                    byte b = bytes[i];
+                for (int i = 0; i < len; i++) {
+                    byte b = bytes[i + off];
                     int w2 = (writeIndex + 1) % buffer.length;
                     if (w2 == readIndex) {
                         skipped = len - i;

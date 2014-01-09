@@ -21,6 +21,7 @@ import org.avrbuddy.avr.AvrMemCmd;
 import org.avrbuddy.avr.AvrMemType;
 import org.avrbuddy.avr.AvrOperation;
 import org.avrbuddy.avr.AvrProgrammer;
+import org.avrbuddy.conn.Connection;
 import org.avrbuddy.xbee.api.XBeeAddress;
 import org.avrbuddy.xbee.api.XBeeFrameListener;
 import org.avrbuddy.xbee.api.XBeeRxFrame;
@@ -88,11 +89,15 @@ public class Avr extends Command {
         try {
             XBeeAddress remoteAddress = destination.resolveAddress(ctx);
             destTracker.changeDestAndSave(remoteAddress);
-            AvrProgrammer pgm = AvrProgrammer.open(ctx.conn.openTunnel(remoteAddress));
-            if (operation != null)
-                operation.execute(pgm);
-            pgm.quit();
-            pgm.close();
+            Connection tunnel = ctx.conn.openTunnel(remoteAddress);
+            try {
+                AvrProgrammer pgm = AvrProgrammer.open(tunnel);
+                if (operation != null)
+                    operation.execute(pgm);
+                pgm.quit();
+            } finally {
+                tunnel.close();
+            }
         } finally {
             ctx.conn.removeListener(XBeeRxFrame.class, destTracker);
             destTracker.stopAndRestore();

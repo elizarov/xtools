@@ -17,14 +17,17 @@
 
 package org.avrbuddy.avr;
 
-import java.io.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.avrbuddy.conn.Connection;
 import org.avrbuddy.hex.HexUtil;
 import org.avrbuddy.log.Log;
 import org.avrbuddy.log.Progress;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.io.OutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Roman Elizarov
@@ -296,9 +299,5 @@ public class AvrProgrammer {
         out.write(CRC_EOP);
         out.flush();
         waitInSyncOk(conn);
-    }
-
-    public void close() {
-        conn.close();
     }
 }
