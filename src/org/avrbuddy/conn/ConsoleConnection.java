@@ -105,11 +105,13 @@ public class ConsoleConnection extends BufferedConnection {
             while (true) {
                 int size;
                 try {
-                    size = System.in.read(buffer);
+                    // reserve space to expand CRLF
+                    size = System.in.read(buffer, 0, BUFFER_SIZE / 2);
                 } catch (IOException e) {
                     log.log(Level.SEVERE, "Error while reading from console", e);
                     return;
                 }
+                size = expandCRLF(buffer, size);
                 list = remoteConsoles.toArray(list);
                 if (list[0] == null) {
                     // no remote console -- work with command console
@@ -129,6 +131,23 @@ public class ConsoleConnection extends BufferedConnection {
                         console.in.write(buffer, 0, size);
                 }
             }
+        }
+
+        private int expandCRLF(byte[] buffer, int size) {
+            if (size <= 0)
+                return size;
+            int count = 0;
+            for (int i = 0; i < size; i++) {
+                if (buffer[i] == '\n')
+                    count++;
+            }
+            int j = size + count;
+            for (int i = size - 1; i >= 0; i--) {
+                buffer[--j] = buffer[i];
+                if (buffer[i] == '\n')
+                    buffer[--j] = '\r';
+            }
+            return size + count;
         }
 
         private int parse(byte[] buffer, int size) {
@@ -152,7 +171,7 @@ public class ConsoleConnection extends BufferedConnection {
                             cmdBuf = new ByteArrayOutputStream(16);
                             continue;
                         }
-                        parseState = PARSE_ANY;
+                        parseState = isEoln ? PARSE_BEGIN : PARSE_ANY;
                         break;
                     case PARSE_CMD:
                         if (isEoln) {
