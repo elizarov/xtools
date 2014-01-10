@@ -252,7 +252,7 @@ public class XBeeConnection {
                     result[0] = nodeDestination;
                 }
             });
-        } while (result[0] != null && --attempts > 0);
+        } while (result[0] == null && --attempts > 0);
         if (status != XBeeAtResponseFrame.STATUS_OK)
             throw new XBeeException(XBeeUtil.formatStatus(status));
         return result[0];
